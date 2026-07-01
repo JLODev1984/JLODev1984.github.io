@@ -7,11 +7,13 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 *, *::before, *::after { box-sizing: border-box; }
-body { margin:0; padding:0; font-family:'Segoe UI',Tahoma,sans-serif; background:#151a12; color:#e0e5de; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
-#fallback-banner { display:none; background:#6b5334; color:#fff; text-align:center; padding:4px; font-size:.75rem; font-weight:bold; border-bottom:1px solid #856842; z-index:4000; }
+:root { --bottom-h:155px; }
+html { -webkit-text-size-adjust:100%; }
+body { margin:0; padding:0; font-family:'Segoe UI',Tahoma,sans-serif; background:#151a12; color:#e0e5de; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
+#fallback-banner { display:none; color:#fff; text-align:center; padding:5px 8px; font-size:.75rem; font-weight:bold; border-bottom:1px solid #444; z-index:4000; transition:background .4s; }
 #placement-banner { display:none; background:#1a3d26; color:#4eff4e; text-align:center; padding:5px; font-size:.8rem; font-weight:bold; border-bottom:2px solid #4eff4e; z-index:4000; cursor:pointer; }
-.main-container { display:flex; flex:1; width:100%; height:calc(100vh - 155px); position:relative; }
-#sidebar { width:355px; min-width:355px; background:#20271d; padding:10px; box-shadow:2px 0 5px rgba(0,0,0,.5); display:flex; flex-direction:column; gap:7px; height:100%; overflow-y:auto; z-index:1000; }
+.main-container { display:flex; flex:1; width:100%; height:calc(100vh - var(--bottom-h)); height:calc(100dvh - var(--bottom-h)); position:relative; min-height:0; }
+#sidebar { width:355px; min-width:355px; background:#20271d; padding:12px; box-shadow:2px 0 5px rgba(0,0,0,.5); display:flex; flex-direction:column; gap:9px; height:100%; overflow-y:auto; z-index:1000; transition:transform .28s ease; position:relative; }
 #map { flex:1; height:100%; background:#242424; }
 h2 { color:#8fa87b; margin:0; font-size:1.1rem; border-bottom:1px solid #4a5d43; padding-bottom:3px; }
 h3 { color:#b0c4a4; margin:2px 0; font-size:.9rem; border-left:3px solid #5b7a47; padding-left:5px; }
@@ -26,7 +28,7 @@ button { padding:7px; color:#fff; border:none; border-radius:4px; cursor:pointer
 .btn-neutral:hover { background:#344d30; }
 .btn-row { display:flex; gap:5px; }
 .btn-row button { flex:1; }
-.control-group { display:flex; flex-direction:column; gap:4px; background:#2a3426; padding:8px; border-radius:5px; }
+.control-group { display:flex; flex-direction:column; gap:4px; background:#2a3426; padding:10px 12px; border-radius:6px; }
 .row-inputs { display:flex; gap:6px; }
 .row-inputs > div { flex:1; }
 label { font-size:.78rem; color:#cbd5c8; }
@@ -38,6 +40,22 @@ select, input[type=text], input[type=number] { padding:5px; border-radius:4px; b
 .status-marginal { color:#ffcc00; font-weight:bold; }
 .status-bad { color:#ff4e4e; font-weight:bold; }
 .status-relay { color:#00c3ff; font-weight:bold; }
+.status-diff-low { color:#ff9900; font-weight:bold; }
+.status-diff-med  { color:#ff6600; font-weight:bold; }
+/* Weather strip */
+.wx-strip { display:flex; gap:2px; margin:4px 0; overflow-x:auto; padding-bottom:2px; }
+.wx-day { flex:1; min-width:38px; background:#1a2417; border:1px solid #2d3b28; border-radius:4px; text-align:center; padding:4px 2px 3px; cursor:pointer; font-size:.62rem; transition:background .2s; user-select:none; }
+.wx-day.wx-selected { background:#1a3d1a; border-color:#4eff4e; }
+.wx-day:hover { background:#243220; }
+.wx-emoji { font-size:.95rem; display:block; line-height:1.2; }
+.wx-name { color:#7d9474; display:block; font-size:.58rem; white-space:nowrap; overflow:hidden; }
+.wx-temp { color:#a4bfa3; display:block; }
+.wx-current-box { background:#1a2417; border-radius:4px; padding:5px 8px; font-size:.75rem; border:1px solid #2d3b28; line-height:1.4; }
+.wx-selected-info { font-size:.68rem; color:#ffcc00; padding:2px 0; min-height:14px; }
+/* Infrastructure */
+.infra-grid { display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-top:4px; }
+.infra-item { display:flex; align-items:center; gap:4px; font-size:.72rem; cursor:pointer; padding:3px 5px; border-radius:3px; background:#1a2117; border:1px solid #2a3424; }
+.infra-item input[type=checkbox] { width:auto; flex-shrink:0; cursor:pointer; }
 .altitude-badge { font-size:.73rem; color:#a4bfa3; font-style:italic; }
 .fresnel-note { font-size:.7rem; color:#7d9474; }
 /* Node list */
@@ -52,9 +70,9 @@ select, input[type=text], input[type=number] { padding:5px; border-radius:4px; b
 .scenario-row { display:flex; gap:5px; }
 .scenario-row input { flex:1; }
 /* Bottom section */
-.bottom-section { height:155px; min-height:155px; background:#0f140e; border-top:2px solid #4a5d43; display:flex; width:100%; }
-.log-box { flex:1; padding:8px; display:flex; flex-direction:column; border-right:1px solid #2d3b28; overflow:hidden; }
-.profile-box { width:460px; min-width:460px; padding:8px; display:flex; flex-direction:column; background:#0b0e0a; }
+.bottom-section { height:var(--bottom-h); min-height:0; background:#0f140e; border-top:2px solid #4a5d43; display:flex; width:100%; }
+.log-box { flex:1; padding:8px; display:flex; flex-direction:column; border-right:1px solid #2d3b28; overflow:hidden; min-height:0; }
+.profile-box { width:460px; min-width:460px; padding:8px; display:flex; flex-direction:column; background:#0b0e0a; min-height:0; }
 .log-title { font-weight:bold; color:#8fa87b; font-size:.82rem; margin-bottom:3px; flex-shrink:0; }
 #log-output { white-space:pre-wrap; flex:1; overflow-y:auto; background:#050705; padding:6px; border-radius:4px; border:1px solid #1a2417; font-family:'Courier New',monospace; font-size:.72rem; color:#a4bfa3; line-height:1.3; }
 #profile-svg { background:#050705; border:1px solid #1a2417; border-radius:4px; flex:1; width:100%; }
@@ -66,13 +84,15 @@ select, input[type=text], input[type=number] { padding:5px; border-radius:4px; b
 .matrix-table td.m-self { background:#0a0d09; color:#2a3a26; }
 .matrix-table td.m-good { background:#0d2b0d; color:#4eff4e; }
 .matrix-table td.m-marginal { background:#2b2b00; color:#ffcc00; }
+.matrix-table td.m-diff-low { background:#2b1a00; color:#ff9900; }
+.matrix-table td.m-diff-med  { background:#2b1000; color:#ff6600; }
 .matrix-table td.m-relay { background:#002b3d; color:#00c3ff; }
 .matrix-table td.m-blocked { background:#2b0d0d; color:#ff4e4e; }
-footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font-size:.68rem; border-top:1px solid #141c12; }
-.modal { display:none; position:fixed; z-index:5000; left:0; top:0; width:100%; height:100%; overflow:auto; background:rgba(0,0,0,.82); backdrop-filter:blur(3px); }
-.modal-content { background:#20271d; margin:5% auto; padding:20px; border:1px solid #4a5d43; width:90%; max-width:600px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,.7); max-height:86vh; overflow-y:auto; }
-.close-btn { color:#8fa87b; float:right; font-size:26px; font-weight:bold; cursor:pointer; line-height:1; }
-.close-btn:hover { color:#fff; }
+footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font-size:.68rem; border-top:1px solid #141c12; }
+.modal { display:none; position:fixed; z-index:5000; left:0; top:0; width:100%; height:100%; height:100dvh; overflow:auto; background:rgba(0,0,0,.82); backdrop-filter:blur(3px); overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+.modal-content { background:#20271d; margin:5% auto; padding:20px; border:1px solid #4a5d43; width:90%; max-width:600px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,.7); max-height:86vh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+.close-btn { color:#8fa87b; float:right; font-size:26px; font-weight:bold; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; width:44px; height:44px; margin:-10px -10px 0 0; border-radius:6px; }
+.close-btn:hover { color:#fff; background:rgba(255,255,255,.08); }
 .howto-step { margin-top:10px; border-left:2px solid #5b7a47; padding-left:10px; margin-bottom:12px; }
 .howto-step strong { color:#8fa87b; font-size:.92rem; display:block; margin-bottom:2px; }
 .howto-step p { margin:0; font-size:.82rem; color:#cbd5c8; line-height:1.4; }
@@ -80,11 +100,50 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.2;} }
 /* Leaflet custom icons */
 .node-icon { width:24px; height:24px; border-radius:50%; border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.7); }
+
+/* Mobile drawer sidebar + utilities overlay trigger */
+#menu-toggle { display:none; position:fixed; top:10px; left:10px; z-index:2600; width:44px; height:44px; background:#20271d; border:1px solid #4a5d43; border-radius:8px; color:#e0e5de; font-size:1.3rem; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,.6); cursor:pointer; }
+#sidebar-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:2400; }
+#sidebar-backdrop.open { display:block; }
+.sidebar-close-btn { display:none; }
+.utility-trigger-btn { background:#3d2a14; border:1px solid #b8862f; color:#ffcc00; }
+.utility-trigger-btn:hover { background:#4d3618; }
+
+@media (max-width:900px) {
+  #menu-toggle { display:flex; }
+  #sidebar { position:fixed; top:0; left:0; width:85vw; max-width:340px; height:100%; height:100dvh; transform:translateX(-105%); box-shadow:4px 0 24px rgba(0,0,0,.65); padding-top:54px; z-index:2500; }
+  #sidebar.open { transform:translateX(0); }
+  .sidebar-close-btn { display:flex; align-items:center; justify-content:center; position:absolute; top:8px; right:8px; width:40px; height:40px; background:#2a3426; border:1px solid #4a5d43; border-radius:6px; color:#e0e5de; font-size:1.5rem; cursor:pointer; }
+
+  :root { --bottom-h:38vh; }
+  .bottom-section { flex-direction:column; }
+  .log-box { border-right:none; border-bottom:1px solid #2d3b28; flex:0 0 45%; }
+  .profile-box, #matrix-panel { width:100%; min-width:0; flex:1; }
+
+  button, .btn-row button { min-height:44px; padding:11px; font-size:.85rem; }
+  select, input[type=text], input[type=number] { min-height:44px; padding:9px; font-size:16px; }
+  .checkbox-container, .infra-item { min-height:44px; font-size:.85rem; }
+  .checkbox-container input, .infra-item input[type=checkbox] { width:20px; height:20px; }
+  .node-btn { width:38px; height:38px; }
+  .close-btn { width:48px; height:48px; }
+  .modal-content { width:94%; margin:4vh auto; max-height:90vh; padding:16px; }
+  h2 { font-size:1.25rem; }
+  h3 { font-size:1rem; }
+}
+
+@media (max-width:480px) {
+  .infra-grid { grid-template-columns:1fr; }
+  .row-inputs { flex-direction:column; }
+  #results { font-size:.88rem; }
+}
 </style>
 </head>
 <body>
 
-<div id="fallback-banner">⚠️ Falha ao obter elevação (Open-Elevation indisponível) — estimativa aproximada em uso.</div>
+<button id="menu-toggle" onclick="toggleSidebar()" aria-label="Abrir menu">☰</button>
+<div id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+<div id="fallback-banner">A verificar APIs de elevação…</div>
 <div id="placement-banner" onclick="cancelPlacement()">📍 Clique no mapa para posicionar o nó — <u>cancelar</u></div>
 
 <div id="howtoModal" class="modal">
@@ -101,7 +160,8 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
       <a href="#sec-veg" onclick="document.getElementById('sec-veg').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">4. Vegetação</a> ·
       <a href="#sec-calc" onclick="document.getElementById('sec-calc').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">5. Modelo de cálculo</a> ·
       <a href="#sec-cenarios" onclick="document.getElementById('sec-cenarios').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">6. Cenários</a> ·
-      <a href="#sec-limites" onclick="document.getElementById('sec-limites').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">7. Limitações</a>
+      <a href="#sec-meteo" onclick="document.getElementById('sec-meteo').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">7. Meteo + Infra</a> ·
+      <a href="#sec-limites" onclick="document.getElementById('sec-limites').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">8. Limitações</a>
     </div>
 
     <!-- 1. MODOS -->
@@ -206,43 +266,49 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
 
     <div class="howto-step">
       <strong>📡 Horizonte Rádio (curvatura efectiva da Terra)</strong>
-      <p>O alcance máximo teórico é determinado pelo horizonte rádio, que depende da altura efectiva da antena. Não se usa o raio real da Terra (6 371 km) mas o <b>raio efectivo k=4/3</b> (8 495 km), que incorpora a refração atmosférica padrão que "dobra" ligeiramente o sinal para baixo:</p>
-      <p style="background:#151a12;padding:6px 10px;border-radius:4px;font-family:monospace;font-size:.78rem;">
-        d_horizonte (km) = 4.12 × √h_efectiva (m)
-      </p>
-      <p>Exemplo: antena a 10 m de altura → horizonte rádio de ≈ 13 km. A 100 m → ≈ 41 km. A potência TX influencia se o sinal chega com qualidade suficiente dentro desse horizonte.</p>
+      <p>O alcance máximo teórico depende da altura efectiva da antena. Usa-se o <b>raio efectivo k=4/3</b> (8 495 km) que incorpora a refração atmosférica padrão:<br>
+      <code style="background:#151a12;padding:2px 6px;border-radius:3px;">d_horizonte (km) = 4.12 × √h_efectiva (m)</code><br>
+      Exemplo: antena a 10 m → horizonte rádio ≈ 13 km. A 100 m → ≈ 41 km.</p>
     </div>
 
     <div class="howto-step">
-      <strong>⚡ Factor de potência</strong>
-      <p>A potência TX afecta a <b>margem de link</b> — a mesma distância com mais potência dá um sinal mais forte. O modelo aplica um factor empírico <code>0.9 + 0.85 × √P</code> normalizado, que reflecte a lei quadrática inversa (dobrar a potência não duplica o alcance — apenas aumenta ≈ 41%). No PMR de 0.5 W, o alcance prático fica muito mais limitado pela linha de vista do que pela potência em si.</p>
+      <strong>🗻 Linha de Vista Real — 64 amostras SRTM <span style="color:#4eff4e;font-size:.8em;">[NOVO]</span></strong>
+      <p>O terreno entre A e B é amostrado em <b>64 pontos equidistantes</b> (antes eram 24). Com trajetos de 5 km, a resolução efectiva passa de ~210 m para ~78 m por amostra — suficiente para captar a maioria dos relevos significativos. A fonte primária é o <b>Open-Meteo (SRTM 90m)</b>; se falhar, muda para <b>OpenTopoData SRTM30m (30m de resolução)</b>. Em cada ponto calcula-se:<br>
+      <code style="background:#151a12;padding:2px 6px;border-radius:3px;display:block;margin-top:4px;">h_linha(d) = h_A + (h_B−h_A)×f − (d₁×d₂)/(2×Reff)×1000</code>
+      Se <code>h_linha &lt; h_terreno</code> em algum ponto intermédio → obstáculo detectado.</p>
     </div>
 
     <div class="howto-step">
-      <strong>🗻 Linha de Vista Real (LOS) com Elevação Real</strong>
-      <p>O terreno entre A e B é amostrado em <b>24 pontos equidistantes</b> via <b>Open-Elevation API</b> (dados SRTM de 90 m de resolução). Em cada ponto intermédio calcula-se:</p>
-      <p style="background:#151a12;padding:6px 10px;border-radius:4px;font-family:monospace;font-size:.78rem;line-height:1.6;">
-        h_linha(d) = h_A + (h_B − h_A) × (d/D) − (d × (D−d)) / (2 × R_ef) × 1000<br>
-        clearance = h_linha(d) − h_terreno(d)
+      <strong>🔆 Difracção Knife-Edge — ITU-R P.526/Deygout <span style="color:#ff9900;font-size:.8em;">[NOVO]</span></strong>
+      <p>Quando o terreno bloqueia a LOS directa, o sinal não é simplesmente eliminado — <b>difracta sobre o obstáculo</b> com uma perda calculável. O parâmetro de Fresnel-Kirchhoff <b>v</b> determina essa perda:</p>
+      <p style="background:#151a12;padding:6px 10px;border-radius:4px;font-family:monospace;font-size:.78rem;line-height:1.7;">
+        v = h × √(2(d₁+d₂) / (λ·d₁·d₂))<br>
+        L(v) = 6.9 + 20·log₁₀(√((v−0.1)²+1) + v − 0.1)  [dB]
       </p>
-      <p>O segundo termo é a <b>correcção de curvatura</b> da Terra. Se <code>clearance &lt; 0</code> em qualquer ponto intermédio → link <span class="status-bad">BLOQUEADO</span>.</p>
+      <p>Classificação do link com difracção:<br>
+      <span class="status-good">✓ LOS livre</span> — terreno não bloqueia<br>
+      <span class="status-marginal">⚠ Marginal</span> — Fresnel invadido &gt;40%<br>
+      <span class="status-diff-low">🔆 Difracção fraca (≤10 dB)</span> — comunicação possível com alguma degradação<br>
+      <span class="status-diff-med">📶 Difracção média (10-25 dB)</span> — sinal muito fraco, comunicação marginal<br>
+      <span class="status-bad">✗ Bloqueado (&gt;25 dB)</span> — sinal inutilizável<br><br>
+      O método <b>Deygout</b> identifica o obstáculo dominante e aplica correcção recursiva para os sub-percursos, tornando a estimativa mais precisa em terreno com múltiplas cristas.</p>
     </div>
 
     <div class="howto-step">
       <strong>📶 1ª Zona de Fresnel (446 MHz)</strong>
-      <p>Mesmo com LOS geometricamente livre, o sinal pode ser degradado se o terreno invadir a <b>zona elipsoidal de Fresnel</b> — a região do espaço onde a reflexão de ondas contribui construtivamente para o sinal recebido. O raio da 1ª zona a cada ponto é:</p>
-      <p style="background:#151a12;padding:6px 10px;border-radius:4px;font-family:monospace;font-size:.78rem;">
-        r₁(m) = 17.3 × √((d₁ × d₂) / (f_GHz × D))
-      </p>
-      <p>Se o terreno invadir <b>&gt;40%</b> do raio de Fresnel → link <span class="status-marginal">MARGINAL</span>. Se invadir 0–40% → link é considerado bom (a degradação é inferior a ~3 dB). A 446 MHz a zona de Fresnel é mais larga do que em frequências mais altas, pelo que exige maior clearance.</p>
+      <p>Mesmo com LOS livre, o sinal degrada se o terreno invadir a zona elipsoidal de Fresnel:<br>
+      <code style="background:#151a12;padding:2px 6px;border-radius:3px;">r₁(m) = 17.3 × √((d₁×d₂) / (f_GHz × D))</code><br>
+      Se invasão &gt;40% → link <span class="status-marginal">MARGINAL</span>. A 446 MHz a zona é mais larga do que em frequências mais altas.</p>
+    </div>
+
+    <div class="howto-step">
+      <strong>📡 Scanner 360º — 60 raios × 10 amostras <span style="color:#4eff4e;font-size:.8em;">[NOVO]</span></strong>
+      <p>O scanner passou de <b>16 raios × 5 amostras</b> (80 pontos) para <b>60 raios × 10 amostras</b> (600 pontos). O polígono de cobertura tem agora 60 lados em vez de 16, muito mais suave e fiel ao terreno real. As chamadas de elevação são feitas em <b>paralelo</b> por blocos de 100 pontos, mantendo a velocidade aceitável mesmo com 6× mais dados.</p>
     </div>
 
     <div class="howto-step">
       <strong>☁️ Condições Atmosféricas</strong>
-      <p>Aplicado como um multiplicador final sobre o alcance calculado:<br>
-      <b>Céu Limpo:</b> ×1.0 (sem penalidade)<br>
-      <b>Chuva / Nevoeiro:</b> ×0.85 (−15%)<br>
-      <b>Tempestade Eléctrica:</b> ×0.60 (−40%, inclui absorção da chuva intensa e ruído adicional)</p>
+      <p>Multiplicador final sobre o alcance: Céu Limpo ×1.0 | Chuva/Nevoeiro ×0.85 | Tempestade ×0.60.</p>
     </div>
 
     <div class="howto-step">
@@ -250,10 +316,11 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
       <p style="background:#151a12;padding:8px 12px;border-radius:4px;font-family:monospace;font-size:.78rem;line-height:1.8;color:#a4bfa3;">
         h_ef = h_terreno + h_antena<br>
         r_base = (4.12 × √h_ef) × f(Potência) × f(Atmosfera)<br>
-        r_final = r_base × m_vegetação<br>
-        m_vegetação = 10^(−dB_vegetação_total / 20)<br>
+        r_final = r_base × m_vegetação × m_difracção<br>
+        m_vegetação = 10^(−dB_veg / 20)<br>
+        m_difracção = 10^(−L(v) / 20)<br>
         <span style="color:#5b7a47;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span><br>
-        Link OK se: r_A ≥ dist AND r_B ≥ dist AND LOS livre AND Fresnel &lt;40%
+        Link OK se: dist ≤ r_final AND (LOS livre OR difracção ≤ 25dB) AND Fresnel &lt;40%
       </p>
     </div>
 
@@ -270,17 +337,34 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
       <p>O ficheiro JSON exportado contém todos os parâmetros da rede e pode ser partilhado com outros membros da equipa (email, USB, etc.). Para importar, basta escolher o ficheiro — a rede é reconstituída automaticamente. O modo de operação muda para <b>Rede Multi-Nó</b> automaticamente ao carregar.</p>
     </div>
 
-    <!-- 7. LIMITAÇÕES -->
-    <div id="sec-limites" style="color:#8fa87b;font-weight:bold;font-size:.95rem;border-left:3px solid #5b7a47;padding-left:8px;margin:14px 0 6px;">7. Limitações e Avisos</div>
+    <!-- 7. METEOROLOGIA + INFRAESTRUTURA -->
+    <div id="sec-meteo" style="color:#8fa87b;font-weight:bold;font-size:.95rem;border-left:3px solid #5b7a47;padding-left:8px;margin:14px 0 6px;">7. Meteorologia Real e Infraestrutura Crítica</div>
+
+    <div class="howto-step">
+      <strong>🌤 Meteorologia Real — Open-Meteo + Previsão 7 Dias</strong>
+      <p>Clique em <b>📍 Carregar Tempo Real</b> para obter as condições actuais e a previsão dos próximos 7 dias via <b>Open-Meteo</b> (gratuito, sem chave, mesmo servidor que usamos para elevação). A consulta é feita para o centro do mapa visível. Cada dia aparece numa strip horizontal clicável — ao seleccionar um dia, toda a simulação é recalculada com o fator de atenuação correspondente. Se a API falhar, o selector manual permanece disponível como fallback. O fator activo é partilhado entre os modos Enlace, Scanner e Rede.</p>
+      <p style="background:#151a12;padding:5px 8px;border-radius:3px;font-size:.75rem;margin-top:4px;">
+        ☀️ Limpo: ×1.0 · ⛅ Nublado: ×0.95 · 🌧 Chuva: ×0.80–0.85 · ⛈ Trovoada: ×0.60
+      </p>
+    </div>
+
+    <div class="howto-step">
+      <strong>🏗 Infraestrutura Crítica (OSM + Rede REP)</strong>
+      <p><b>Camadas OSM (via Overpass):</b> Clique em <b>⬇ Carregar OSM</b> para buscar todos os pontos de infraestrutura na vista actual do mapa. Depois active/desactive cada camada com os checkboxes: 🏥 Saúde · 🚒 Bombeiros · 👮 GNR/PSP · ⛽ Combustível · 💧 Barragens. Cada marcador tem popup com nome, tipo e coordenadas GPS.</p>
+      <p style="margin-top:5px;"><b>📡 Repetidores REP (dados estáticos pré-carregados):</b> 25 repetidores de referência cobrindo Portugal continental — VHF FM, UHF FM, D-STAR e DMR. Cada popup mostra frequência TX/RX, tom CTCSS, modo e altitude. Activar o checkbox <b>📡 Repeaters REP</b> não requer carregar OSM. <i>Dados aproximados de fontes públicas (REP/ARAM) — verificar antes de operar.</i></p>
+    </div>
+
+    <!-- 8. LIMITAÇÕES -->
+    <div id="sec-limites" style="color:#8fa87b;font-weight:bold;font-size:.95rem;border-left:3px solid #5b7a47;padding-left:8px;margin:14px 0 6px;">8. Limitações e Avisos</div>
 
     <div class="howto-step">
       <strong>⚠️ Este simulador é uma aproximação</strong>
       <p>
-        <b>Resolução do terreno:</b> a API Open-Elevation usa dados SRTM 3 arc-second (~90 m de resolução). Elevações locais (casas, muros, vegetação alta) não estão incluídas no MDT.<br><br>
-        <b>Vegetação OSM:</b> a cobertura do OSM varia — zonas rurais podem ter lacunas. As perdas por vegetação são estimativas baseadas em literatura (ITU-R P.833) e variam com a espécie, densidade e estação do ano.<br><br>
-        <b>Propagação por reflexão / difracção:</b> o modelo não considera multi-path, reflexões em edifícios/água, ou difracção em bordas de crista — que na prática podem melhorar ligações que o simulador classifica como bloqueadas.<br><br>
-        <b>Ruído e interferência:</b> não estão modelados o ruído de fundo, co-canal, ou intermodulação.<br><br>
-        <b>Modo de falha offline:</b> se as APIs de elevação e vegetação estiverem indisponíveis, o simulador usa estimativas de fallback (ruído baseado em coordenadas) e avisa com banner no topo. Os cenários JSON continuam funcionais sem internet.
+        <b>Fonte de elevação — cascata de APIs:</b> a aplicação tenta sequencialmente <b>Open-Meteo</b> (primária, muito fiável), <b>OpenTopoData SRTM30m</b> (secundária, 30m de resolução) e <b>Open-Elevation</b> (terciária). O estado activo é visível no banner a verde (OK), amarelo (secundária) ou vermelho (estimativa).<br><br>
+        <b>Resolução do terreno:</b> SRTM 3 arc-second (~90 m via Open-Meteo) ou 1 arc-second (~30 m via OpenTopoData). Elevações locais (casas, muros, vegetação alta) não estão incluídas no MDT.<br><br>
+        <b>Repetidores REP:</b> localizações e frequências aproximadas — verificar com REP/ARAM para operação real.<br><br>
+        <b>Meteorologia:</b> o Open-Meteo fornece previsões de curto prazo (7 dias). Para emergências prolongadas, considere fontes adicionais.<br><br>
+        <b>Vegetação OSM:</b> cobertura variável — zonas rurais remotas podem ter lacunas. As perdas são estimativas (ITU-R P.833).
       </p>
     </div>
 
@@ -288,8 +372,27 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
   </div>
 </div>
 
+<div id="utilityModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeUtilityOverlay()">&times;</span>
+    <h2 style="margin-top:0;color:#8fa87b;border-bottom:1px solid #4a5d43;padding-bottom:6px;">🏗 Infraestrutura Crítica</h2>
+    <div class="infra-grid">
+      <label class="infra-item"><input type="checkbox" id="infra-health"  onchange="toggleInfraLayer('health')">  🏥 Saúde</label>
+      <label class="infra-item"><input type="checkbox" id="infra-fire"    onchange="toggleInfraLayer('fire')">    🚒 Bombeiros</label>
+      <label class="infra-item"><input type="checkbox" id="infra-police"  onchange="toggleInfraLayer('police')">  👮 GNR/PSP</label>
+      <label class="infra-item"><input type="checkbox" id="infra-fuel"    onchange="toggleInfraLayer('fuel')">    ⛽ Combustível</label>
+      <label class="infra-item"><input type="checkbox" id="infra-water"   onchange="toggleInfraLayer('water')">   💧 Barragens</label>
+      <label class="infra-item"><input type="checkbox" id="infra-rep"     onchange="toggleInfraLayer('rep')">     📡 Repeaters REP</label>
+    </div>
+    <button class="btn-neutral" onclick="loadInfrastructure()" style="margin-top:10px;">⬇ Carregar OSM (vista actual do mapa)</button>
+    <div id="infra-status" style="display:none;font-size:.75rem;padding:6px 8px;border-radius:4px;margin-top:6px;"></div>
+    <p style="font-size:.72rem;color:#7d9474;margin-top:10px;line-height:1.5;">Active os checkboxes para mostrar cada camada no mapa. Os repetidores REP (📡) usam dados estáticos e não requerem "Carregar OSM".</p>
+  </div>
+</div>
+
 <div class="main-container">
   <div id="sidebar">
+    <div class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Fechar menu">&times;</div>
     <h2>Simulador Rádio PMR/VHF/UHF</h2>
     <button class="btn-howto" onclick="openHowTo()">📖 Como Funciona</button>
 
@@ -311,6 +414,11 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
         <input type="checkbox" id="show-repeaters" onchange="toggleRepeaters()">
         <span>Mostrar repetidores de referência (estáticos)</span>
       </label>
+    </div>
+
+    <!-- INFRAESTRUTURA CRÍTICA — abre overlay dedicado -->
+    <div class="control-group">
+      <button class="utility-trigger-btn" onclick="openUtilityOverlay()">🏗 Utilidades Críticas</button>
     </div>
 
     <!-- LINK MODE PANELS -->
@@ -360,8 +468,8 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
         </div>
         <label>Equipamento:</label>
         <select id="radioB-model" onchange="updatePower('B')">
-          <option value="pmr-standard">PMR446 Padrão (0.5W, 446MHz)</option>
-          <option value="baofeng-uv5r" selected>Baofeng UV-5R (5W, VHF/UHF)</option>
+          <option value="pmr-standard" selected>PMR446 Padrão (0.5W, 446MHz)</option>
+          <option value="baofeng-uv5r">Baofeng UV-5R (5W, VHF/UHF)</option>
           <option value="baofeng-uv9r">Baofeng UV-9R Pro (8W, VHF/UHF)</option>
           <option value="quansheng-uvk5">Quansheng UV-K5 (5W, VHF/UHF)</option>
           <option value="quansheng-uvk6">Quansheng UV-K6 (5W, VHF/UHF)</option>
@@ -370,28 +478,39 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
           <option value="custom">Personalizado...</option>
         </select>
         <div class="row-inputs">
-          <div><label>Potência TX (W):</label><input type="number" id="radioB-power" value="5.0" step="0.1" min="0.1" oninput="triggerRecalculate()"></div>
+          <div><label>Potência TX (W):</label><input type="number" id="radioB-power" value="0.5" step="0.1" min="0.1" oninput="triggerRecalculate()"></div>
           <div><label>Altura Antena (m):</label><input type="number" id="radioB-offset" value="0" min="0" oninput="triggerRecalculate()"></div>
         </div>
         <div id="altitudeB" class="altitude-badge">Altitude: -- m</div>
       </div>
       <div class="control-group">
-        <h3>Condições Reais de Propagação</h3>
-        <label>Atmosfera:</label>
-        <select id="weather" onchange="triggerRecalculate()">
-          <option value="1.0">Céu Limpo</option>
-          <option value="0.85">Chuva Ligeira / Nevoeiro</option>
-          <option value="0.60">Chuva Forte / Tempestade</option>
+        <h3>🌤 Condições Atmosféricas</h3>
+        <button class="btn-neutral" onclick="fetchWeatherForMap()" style="font-size:.72rem;padding:6px;">📍 Carregar Tempo Real (mapa actual)</button>
+        <!-- Painel de tempo real (oculto até carregar) -->
+        <div id="wx-realtime-panel" style="display:none;margin-top:4px;">
+          <div id="wx-current-box" class="wx-current-box"></div>
+          <div style="font-size:.68rem;color:#7d9474;margin:5px 0 2px;">Previsão 7 dias — clique para simular esse dia:</div>
+          <div id="wx-strip" class="wx-strip"></div>
+          <div id="wx-selected-info" class="wx-selected-info"></div>
+        </div>
+        <!-- Override manual — sempre visível como fallback -->
+        <div style="font-size:.68rem;color:#6b7d67;margin-top:5px;border-top:1px solid #2a3424;padding-top:4px;">⚙️ Ou definir manualmente:</div>
+        <select id="weather" onchange="selectManualWeather()" style="margin-top:2px;">
+          <option value="1.0">☀️ Céu Limpo (×1.0)</option>
+          <option value="0.95">⛅ Nublado (×0.95)</option>
+          <option value="0.85">🌧 Chuva Ligeira / Nevoeiro (×0.85)</option>
+          <option value="0.72">⛈ Aguaceiros / Chuva Forte (×0.72)</option>
+          <option value="0.60">⛈ Trovoada / Tempestade (×0.60)</option>
         </select>
-        <label class="checkbox-container" style="margin-top:5px;">
+        <label class="checkbox-container" style="margin-top:6px;">
           <input type="checkbox" id="use-vegetation" onchange="triggerRecalculate()" checked>
-          <span>🌲 Atenuação por vegetação (OSM — floresta, mato, pomar)</span>
+          <span>🌲 Atenuação por vegetação (OSM)</span>
         </label>
         <div id="veg-status" style="display:none;font-size:.7rem;padding:3px 5px;border-radius:3px;margin-top:2px;"></div>
         <div id="veg-legend" style="display:none;font-size:.68rem;color:#7d9474;margin-top:2px;line-height:1.5;">
-          <span style="color:#2d9a1b">█</span> Floresta/Bosque: −10 dB/km &nbsp;
-          <span style="color:#6da83a">█</span> Mato/Scrub: −4 dB/km &nbsp;
-          <span style="color:#8aba4a">█</span> Pomar/Vinha: −2 dB/km
+          <span style="color:#2d9a1b">█</span> Floresta: −10dB/km &nbsp;
+          <span style="color:#6da83a">█</span> Mato: −4dB/km &nbsp;
+          <span style="color:#8aba4a">█</span> Pomar: −2dB/km
         </div>
       </div>
       <button class="btn-calc" onclick="triggerRecalculate()">Processar Análise <span id="loader" style="display:none;" class="loader-dot"></span></button>
@@ -403,6 +522,7 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
         <div id="res-max-range">Alcance: --</div>
         <div id="res-quality">Qualidade: --</div>
         <div id="res-fresnel" class="fresnel-note">Zona de Fresnel: --</div>
+        <div id="res-diffraction" class="fresnel-note" style="color:#ff9900;">🔆 Difracção: --</div>
         <div id="res-vegetation" class="fresnel-note" style="color:#4eb84e;">🌲 Vegetação: --</div>
       </div>
     </div>
@@ -427,8 +547,8 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
         </div>
         <label>Equipamento:</label>
         <select id="net-node-model" onchange="updateNetNodePower()">
-          <option value="pmr-standard">PMR446 Padrão (0.5W)</option>
-          <option value="baofeng-uv5r" selected>Baofeng UV-5R (5W)</option>
+          <option value="pmr-standard" selected>PMR446 Padrão (0.5W)</option>
+          <option value="baofeng-uv5r">Baofeng UV-5R (5W)</option>
           <option value="baofeng-uv9r">Baofeng UV-9R Pro (8W)</option>
           <option value="quansheng-uvk5">Quansheng UV-K5 (5W)</option>
           <option value="quansheng-uvk6">Quansheng UV-K6 (5W)</option>
@@ -437,7 +557,7 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
           <option value="custom">Personalizado...</option>
         </select>
         <div class="row-inputs">
-          <div><label>Potência (W):</label><input type="number" id="net-node-power" value="5.0" step="0.1" min="0.1"></div>
+          <div><label>Potência (W):</label><input type="number" id="net-node-power" value="0.5" step="0.1" min="0.1"></div>
           <div><label>Offset (m):</label><input type="number" id="net-node-offset" value="0" min="0"></div>
         </div>
         <button class="btn-place" id="btn-place-node" onclick="startPlacingNode()">📍 Colocar no Mapa</button>
@@ -446,7 +566,7 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
       <div class="control-group">
         <h3>Nós na Rede <span id="net-node-count" style="color:#7d9474;font-size:.75rem;">(0 nós)</span></h3>
         <div id="node-list" style="display:flex;flex-direction:column;gap:4px;min-height:20px;">
-          <div style="color:#445041;font-size:.75rem;font-style:italic;">Nenhum nó posicionado ainda.</div>
+          <div style="color:#6b7d67;font-size:.75rem;font-style:italic;">Nenhum nó posicionado ainda.</div>
         </div>
         <div class="btn-row" style="margin-top:4px;">
           <button class="btn-calc" onclick="runNetworkAnalysis()">⚡ Analisar Rede <span id="net-loader" style="display:none;" class="loader-dot"></span></button>
@@ -455,11 +575,15 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
       </div>
 
       <div class="control-group">
-        <h3>Condições Atmosféricas</h3>
-        <select id="net-weather">
-          <option value="1.0">Céu Limpo</option>
-          <option value="0.85">Chuva Ligeira / Nevoeiro</option>
-          <option value="0.60">Chuva Forte / Tempestade</option>
+        <h3>🌤 Condições Atmosféricas</h3>
+        <div style="font-size:.7rem;color:#7d9474;margin-bottom:3px;">Usa as mesmas condições do modo Enlace (tempo real ou manual).</div>
+        <div id="wx-net-summary" class="wx-current-box" style="font-size:.72rem;margin-bottom:4px;">Fator activo: ×1.0 (Céu Limpo)</div>
+        <select id="net-weather" onchange="selectManualWeather()">
+          <option value="1.0">☀️ Céu Limpo (×1.0)</option>
+          <option value="0.95">⛅ Nublado (×0.95)</option>
+          <option value="0.85">🌧 Chuva Ligeira / Nevoeiro (×0.85)</option>
+          <option value="0.72">⛈ Aguaceiros / Chuva Forte (×0.72)</option>
+          <option value="0.60">⛈ Trovoada / Tempestade (×0.60)</option>
         </select>
         <label class="checkbox-container" style="margin-top:5px;">
           <input type="checkbox" id="net-use-vegetation" checked>
@@ -505,13 +629,13 @@ footer { background:#0a0d09; color:#445041; text-align:center; padding:3px; font
   <div class="profile-box" id="profile-chart-container">
     <div class="log-title">Perfil de Relevo + Linha de Vista (Fresnel)</div>
     <svg id="profile-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
-      <text x="20" y="55" fill="#445041" font-size="7" font-family="monospace">Nenhum enlace activo</text>
+      <text x="20" y="55" fill="#6b7d67" font-size="7" font-family="monospace">Nenhum enlace activo</text>
     </svg>
   </div>
   <!-- Network matrix panel (hidden by default) -->
   <div id="matrix-panel" style="display:none; flex:1; padding:8px; flex-direction:column; overflow:hidden;">
     <div class="log-title">Matriz de Conetividade da Rede</div>
-    <div id="matrix-container"><div style="color:#445041;font-size:.75rem;padding:6px;">Analisar a rede para ver a matriz.</div></div>
+    <div id="matrix-container"><div style="color:#6b7d67;font-size:.75rem;padding:6px;">Analisar a rede para ver a matriz.</div></div>
   </div>
 </div>
 
@@ -552,11 +676,96 @@ let vegCacheBbox = null;      // bbox that was last fetched
 let vegMapLayer  = null;      // leaflet layer for overlay
 
 const referenceRepeaters = [
-    { indicativo:"REP-ESTRELA", localizacao:"Serra da Estrela", freq:"145.600 MHz", tipo:"VHF", lat:40.3218, lng:-7.6129, cor:"cyan" },
-    { indicativo:"REP-MONSANTO", localizacao:"Monsanto (Lisboa)", freq:"438.800 MHz", tipo:"UHF", lat:38.7394, lng:-9.1842, cor:"magenta" },
-    { indicativo:"REP-MARAO", localizacao:"Serra do Marão", freq:"145.750 MHz", tipo:"VHF", lat:41.2655, lng:-7.9012, cor:"cyan" },
-    { indicativo:"REP-CALDEIRAO", localizacao:"Serra do Caldeirão", freq:"439.200 MHz", tipo:"UHF", lat:37.3050, lng:-7.9700, cor:"magenta" }
+    { indicativo:"CR5REN", localizacao:"Serra da Estrela", freq:"145.600 MHz", tipo:"VHF", lat:40.3218, lng:-7.6129, cor:"cyan" },
+    { indicativo:"CR5RLB", localizacao:"Monsanto (Lisboa)", freq:"438.800 MHz", tipo:"UHF", lat:38.7394, lng:-9.1842, cor:"magenta" },
+    { indicativo:"CR5RMA", localizacao:"Serra do Marão", freq:"145.750 MHz", tipo:"VHF", lat:41.2655, lng:-7.9012, cor:"cyan" },
+    { indicativo:"CR5RFR", localizacao:"Serra de Monchique", freq:"145.600 MHz", tipo:"VHF", lat:37.3193, lng:-8.5584, cor:"cyan" }
 ];
+
+// ── Rede REP — Repetidores de Radioamador Portugueses ─────────────────────
+// Dados aproximados de fontes públicas (REP/ARAM). Verificar com as associações.
+const REP_NETWORK = [
+    // Norte
+    { id:"CR5RBR", loc:"Braga/Monte Sameiro",    freq_out:"145.650", freq_in:"145.050", ctcss:"77.0", mode:"FM",    band:"VHF", lat:41.5623, lng:-8.3875, alt:566 },
+    { id:"CR5RPT", loc:"Porto/Felgueiras",        freq_out:"145.675", freq_in:"145.075", ctcss:"77.0", mode:"FM",    band:"VHF", lat:41.3621, lng:-8.1996, alt:620 },
+    { id:"CR5RVR", loc:"Viana do Castelo",        freq_out:"145.725", freq_in:"145.125", ctcss:"77.0", mode:"FM",    band:"VHF", lat:41.6937, lng:-8.8334, alt:840 },
+    { id:"CR5RVC", loc:"Chaves/Barroso",          freq_out:"145.700", freq_in:"145.100", ctcss:"77.0", mode:"FM",    band:"VHF", lat:41.7381, lng:-7.4698, alt:1125 },
+    { id:"CR5RMA", loc:"Serra do Marão",          freq_out:"145.7375",freq_in:"145.1375",ctcss:"77.0", mode:"FM",    band:"VHF", lat:41.2637, lng:-7.9012, alt:1350 },
+    { id:"CR5UMA", loc:"Serra do Marão",          freq_out:"439.200", freq_in:"431.600", ctcss:"77.0", mode:"FM",    band:"UHF", lat:41.2637, lng:-7.9020, alt:1350 },
+    { id:"CR5RBG", loc:"Bragança/Montesinho",     freq_out:"145.600", freq_in:"145.000", ctcss:"77.0", mode:"FM",    band:"VHF", lat:41.9231, lng:-6.8012, alt:1281 },
+    // Centro Norte
+    { id:"CR5RVI", loc:"Viseu/Serra do Caramulo",  freq_out:"145.675", freq_in:"145.075", ctcss:"77.0", mode:"FM",    band:"VHF", lat:40.5608, lng:-8.1919, alt:1070 },
+    { id:"CR5REN", loc:"Serra da Estrela",        freq_out:"145.600", freq_in:"145.000", ctcss:"77.0", mode:"FM",    band:"VHF", lat:40.3218, lng:-7.6129, alt:1920 },
+    { id:"CR5UEN", loc:"Serra da Estrela",        freq_out:"438.875", freq_in:"431.875", ctcss:"77.0", mode:"FM",    band:"UHF", lat:40.3218, lng:-7.6120, alt:1920 },
+    { id:"CR5RCB", loc:"Coimbra/Penacova",        freq_out:"145.625", freq_in:"145.025", ctcss:"77.0", mode:"FM",    band:"VHF", lat:40.2056, lng:-8.2994, alt:540 },
+    { id:"CR5RLR", loc:"Leiria/Serra de Aire",    freq_out:"145.700", freq_in:"145.100", ctcss:"77.0", mode:"FM",    band:"VHF", lat:39.6123, lng:-8.6071, alt:670 },
+    // Lisboa e Vale do Tejo
+    { id:"CR5RSN", loc:"Sintra/Cascais",          freq_out:"145.625", freq_in:"145.025", ctcss:"77.0", mode:"FM",    band:"VHF", lat:38.7978, lng:-9.3879, alt:523 },
+    { id:"CR5RLB", loc:"Lisboa/Monsanto",         freq_out:"145.7375",freq_in:"145.1375",ctcss:"77.0", mode:"FM",    band:"VHF", lat:38.7394, lng:-9.1842, alt:225 },
+    { id:"CR5ULB", loc:"Lisboa/Monsanto",         freq_out:"438.800", freq_in:"431.800", ctcss:"77.0", mode:"FM",    band:"UHF", lat:38.7390, lng:-9.1850, alt:225 },
+    { id:"CR5XLB", loc:"Lisboa/D-STAR",           freq_out:"145.5875",freq_in:"144.9875",ctcss:null,   mode:"D-STAR",band:"VHF", lat:38.7380, lng:-9.1380, alt:100 },
+    { id:"CR5DLB", loc:"Lisboa/DMR Sacavém",      freq_out:"438.700", freq_in:"431.100", ctcss:null,   mode:"DMR",   band:"UHF", lat:38.7790, lng:-9.1030, alt:80  },
+    { id:"CR5RST", loc:"Setúbal/Serra da Arrábida",freq_out:"145.650",freq_in:"145.050", ctcss:"77.0", mode:"FM",    band:"VHF", lat:38.5000, lng:-8.9950, alt:500 },
+    { id:"CR5RSN2",loc:"Santarém/Almourol",       freq_out:"145.600", freq_in:"145.000", ctcss:"77.0", mode:"FM",    band:"VHF", lat:39.4700, lng:-8.3700, alt:350 },
+    // Alentejo
+    { id:"CR5REV", loc:"Évora/São Mamede",        freq_out:"145.6875",freq_in:"145.0875",ctcss:"77.0", mode:"FM",    band:"VHF", lat:38.5714, lng:-7.9139, alt:300 },
+    { id:"CR5RPT2",loc:"Portalegre/S. Mamede",    freq_out:"145.750", freq_in:"145.150", ctcss:"77.0", mode:"FM",    band:"VHF", lat:39.3191, lng:-7.4285, alt:1025},
+    { id:"CR5RBJ", loc:"Beja/Serpa",              freq_out:"145.725", freq_in:"145.125", ctcss:"77.0", mode:"FM",    band:"VHF", lat:38.0156, lng:-7.8620, alt:280 },
+    // Algarve
+    { id:"CR5RFR", loc:"Serra de Monchique",      freq_out:"145.600", freq_in:"145.000", ctcss:"77.0", mode:"FM",    band:"VHF", lat:37.3193, lng:-8.5584, alt:902 },
+    { id:"CR5UFR", loc:"Serra de Monchique",      freq_out:"439.000", freq_in:"431.400", ctcss:"77.0", mode:"FM",    band:"UHF", lat:37.3193, lng:-8.5590, alt:902 },
+    { id:"CR5RTA", loc:"Tavira/Serra do Caldeirão",freq_out:"145.650",freq_in:"145.050", ctcss:"77.0", mode:"FM",    band:"VHF", lat:37.3050, lng:-7.9700, alt:589 },
+];
+
+// ── WMO Weather Codes → Nome / Emoji / Factor de propagação ──────────────
+const WMO_MAP = {
+    0:{emoji:'☀️', name:'Céu Limpo',       factor:1.00},
+    1:{emoji:'🌤', name:'Maiorm. Limpo',   factor:1.00},
+    2:{emoji:'⛅', name:'Parcialm. Nublado',factor:0.97},
+    3:{emoji:'☁️', name:'Nublado',          factor:0.95},
+   45:{emoji:'🌫', name:'Nevoeiro',         factor:0.85},
+   48:{emoji:'🌫', name:'Nevoeiro Gelado',  factor:0.82},
+   51:{emoji:'🌦', name:'Chuvisco Leve',    factor:0.90},
+   53:{emoji:'🌦', name:'Chuvisco',         factor:0.87},
+   55:{emoji:'🌧', name:'Chuvisco Forte',   factor:0.83},
+   61:{emoji:'🌧', name:'Chuva Leve',       factor:0.85},
+   63:{emoji:'🌧', name:'Chuva',            factor:0.80},
+   65:{emoji:'🌧', name:'Chuva Forte',      factor:0.75},
+   71:{emoji:'🌨', name:'Neve Leve',        factor:0.80},
+   73:{emoji:'🌨', name:'Neve',             factor:0.75},
+   75:{emoji:'❄️', name:'Neve Forte',       factor:0.70},
+   80:{emoji:'🌦', name:'Aguaceiros',       factor:0.87},
+   81:{emoji:'🌧', name:'Aguaceiros Mod.',  factor:0.80},
+   82:{emoji:'⛈', name:'Aguaceiros Fort.', factor:0.72},
+   85:{emoji:'🌨', name:'Neve em Aguaceiros',factor:0.75},
+   86:{emoji:'❄️', name:'Neve Fort.+Aguac.',factor:0.68},
+   95:{emoji:'⛈', name:'Trovoada',         factor:0.60},
+   96:{emoji:'⛈', name:'Trovoada+Granizo', factor:0.55},
+   99:{emoji:'⛈', name:'Trovoada+Granizo', factor:0.50},
+};
+
+// ── Weather state ─────────────────────────────────────────────────────────
+let wxData          = null;  // Open-Meteo response
+let wxSelectedDay   = null;  // null=manual, -1=current, 0-6=forecast day
+let wxActiveFactor  = 1.0;   // active propagation factor
+let wxForecastFactors = [];  // factor per forecast day
+
+// ── Infrastructure state ──────────────────────────────────────────────────
+const INFRA_CFG = {
+    health:{ label:'Saúde',      color:'#ff6b6b', emoji:'🏥',
+             tags:'["amenity"~"hospital|clinic|health_centre|doctors"]' },
+    fire:  { label:'Bombeiros',  color:'#ff4500', emoji:'🚒',
+             tags:'["amenity"="fire_station"]' },
+    police:{ label:'GNR/PSP',   color:'#4169e1', emoji:'👮',
+             tags:'["amenity"="police"]' },
+    fuel:  { label:'Combustível',color:'#ffd700', emoji:'⛽',
+             tags:'["amenity"="fuel"]' },
+    water: { label:'Barragens',  color:'#00bfff', emoji:'💧',
+             tags:'["waterway"~"dam|weir"]["man_made"!="bridge"]' },
+};
+const infraLayers = {};
+const infraCache  = { health:[], fire:[], police:[], fuel:[], water:[] };
+let   infraLoaded = false;
 
 const powerMap = {
     'pmr-standard':0.5,'baofeng-uv5r':5.0,'baofeng-uv9r':8.0,
@@ -608,7 +817,31 @@ window.onload = function() {
 // ══════════════════════════════════════════════════════
 function openHowTo() { document.getElementById('howtoModal').style.display='block'; }
 function closeHowTo() { document.getElementById('howtoModal').style.display='none'; }
-window.onclick = e => { if(e.target===document.getElementById('howtoModal')) closeHowTo(); };
+window.onclick = e => {
+    if(e.target===document.getElementById('howtoModal')) closeHowTo();
+    if(e.target===document.getElementById('utilityModal')) closeUtilityOverlay();
+};
+
+// ══════════════════════════════════════════════════════
+//  MOBILE SIDEBAR DRAWER + UTILITIES OVERLAY
+// ══════════════════════════════════════════════════════
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebar-backdrop').classList.add('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-backdrop').classList.remove('open');
+}
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+}
+function openUtilityOverlay() { document.getElementById('utilityModal').style.display='block'; }
+function closeUtilityOverlay() { document.getElementById('utilityModal').style.display='none'; }
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeHowTo(); closeUtilityOverlay(); closeSidebar();
+});
 
 // ══════════════════════════════════════════════════════
 //  MODE SWITCHING
@@ -768,20 +1001,129 @@ async function fetchLocationName(lat,lng,target) {
 // ══════════════════════════════════════════════════════
 //  ELEVATION API
 // ══════════════════════════════════════════════════════
-async function batchElevation(coordsArray) {
+// ── Elevation API cascade ─────────────────────────────
+// Ordem: Open-Meteo (primária) → OpenTopoData (secundária)
+//        → Open-Elevation (terciária) → estimativa determinística
+
+const _elevCache = new Map(); // cache por chave arredondada
+
+function _elevKey(c) {
+    // arredonda a 4 casas (±11m) para reutilizar resultados de drags pequenos
+    return `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`;
+}
+
+function _fetchTimeout(url, opts, ms) {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { ...opts, signal: ctrl.signal })
+           .finally(() => clearTimeout(tid));
+}
+
+function _elevBanner(msg, style) {
+    // style: 'ok' | 'warn' | 'error' | 'hidden'
+    const el = document.getElementById('fallback-banner');
+    if (!el) return;
+    if (style === 'hidden') { el.style.display = 'none'; return; }
+    const cfg = {
+        ok:    { bg:'#1a3d1a', border:'#2d6b2d' },
+        warn:  { bg:'#3d3400', border:'#7a6a00' },
+        error: { bg:'#6b2a00', border:'#a04000' }
+    }[style] || { bg:'#333', border:'#555' };
+    el.style.display     = 'block';
+    el.style.background  = cfg.bg;
+    el.style.borderColor = cfg.border;
+    el.innerText = msg;
+}
+
+// Divide array em blocos de n elementos
+function _chunk(arr, n) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+    return out;
+}
+
+async function _elevSingleBatch(coords) {
+    // ── 1. Open-Meteo (GET, SRTM 90m, sem chave, muito fiável) ──────────
     try {
-        const res = await fetch('https://api.open-elevation.com/api/v1/lookup',{
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({locations: coordsArray.map(c=>({latitude:c.lat,longitude:c.lng}))})
+        const lats = coords.map(c => c.lat.toFixed(5)).join(',');
+        const lngs = coords.map(c => c.lng.toFixed(5)).join(',');
+        const res  = await _fetchTimeout(
+            `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`,
+            {}, 7000
+        );
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        if (Array.isArray(d.elevation) && d.elevation.length === coords.length) {
+            _elevBanner('✅ Elevação: Open-Meteo (SRTM 90m)', 'ok');
+            return d.elevation;
+        }
+        throw new Error('resposta inesperada');
+    } catch (e) { console.info('[Elev] Open-Meteo:', e.message); }
+
+    // ── 2. OpenTopoData SRTM30m (GET, sem chave, resolução 30m) ──────────
+    try {
+        _elevBanner('🔄 Open-Meteo indisponível — a tentar OpenTopoData SRTM30m…', 'warn');
+        const locs = coords.map(c => `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`).join('|');
+        const res  = await _fetchTimeout(
+            `https://api.opentopodata.org/v1/srtm30m?locations=${encodeURIComponent(locs)}`,
+            {}, 10000
+        );
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        if (Array.isArray(d.results) && d.results.length === coords.length) {
+            _elevBanner('⚠️ Elevação: OpenTopoData SRTM30m — resolução 30m (API secundária)', 'warn');
+            return d.results.map(r => r.elevation ?? 0);
+        }
+        throw new Error('resposta inesperada');
+    } catch (e) { console.info('[Elev] OpenTopoData SRTM30m:', e.message); }
+
+    // ── 3. Open-Elevation (POST, sem chave, instável) ───────────────────
+    try {
+        _elevBanner('🔄 A tentar Open-Elevation (API terciária)…', 'warn');
+        const res = await _fetchTimeout(
+            'https://api.open-elevation.com/api/v1/lookup',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ locations: coords.map(c => ({ latitude: c.lat, longitude: c.lng })) })
+            },
+            14000
+        );
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        if (Array.isArray(d.results) && d.results.length === coords.length) {
+            _elevBanner('⚠️ Elevação: Open-Elevation (API terciária)', 'warn');
+            return d.results.map(r => r.elevation);
+        }
+        throw new Error('resposta inesperada');
+    } catch (e) { console.info('[Elev] Open-Elevation:', e.message); }
+
+    // ── 4. Estimativa determinística (fallback final) ────────────────────
+    _elevBanner('❌ Todas as APIs de elevação indisponíveis — a usar estimativa aproximada de terreno.', 'error');
+    return coords.map(c => 80 + 60 * Math.abs(Math.sin(c.lat * 12.9898 + c.lng * 78.233) * 43758.5453 % 1));
+}
+
+async function batchElevation(coordsArray) {
+    if (!coordsArray.length) return [];
+
+    // Verificar cache
+    const keys     = coordsArray.map(_elevKey);
+    const missing  = [];
+    const missIdx  = [];
+    keys.forEach((k, i) => { if (!_elevCache.has(k)) { missing.push(coordsArray[i]); missIdx.push(i); } });
+
+    if (missing.length) {
+        // Blocos de 100 em PARALELO (Open-Meteo suporta; muito mais rápido para scanners grandes)
+        const blocks  = _chunk(missing, 100);
+        const results = await Promise.all(blocks.map(blk => _elevSingleBatch(blk)));
+        const fetched = results.flat();
+        missIdx.forEach((origIdx, fi) => {
+            _elevCache.set(keys[origIdx], fetched[fi]);
+            if (_elevCache.size > 2000) _elevCache.delete(_elevCache.keys().next().value);
         });
-        if (!res.ok) throw new Error('http '+res.status);
-        const data = await res.json();
-        document.getElementById('fallback-banner').style.display='none';
-        return data.results.map(r=>r.elevation);
-    } catch(e) {
-        document.getElementById('fallback-banner').style.display='block';
-        return coordsArray.map(c=>80+60*Math.abs(Math.sin(c.lat*12.9898+c.lng*78.233)*43758.5453%1));
     }
+
+    return keys.map(k => _elevCache.get(k) ?? 100);
 }
 
 // ══════════════════════════════════════════════════════
@@ -981,7 +1323,7 @@ async function updateLinkUI() {
         const effAltA=altA+offA, effAltB=altB+offB;
         const pA=parseFloat(document.getElementById('radioA-power').value)||0.1;
         const pB=parseFloat(document.getElementById('radioB-power').value)||0.1;
-        const wf=parseFloat(document.getElementById('weather').value);
+        const wf=getCurrentWeatherFactor();
         const useVeg = document.getElementById('use-vegetation').checked;
 
         // Fetch LOS + vegetation in PARALLEL for speed
@@ -992,13 +1334,17 @@ async function updateLinkUI() {
         ]);
 
         // Vegetation profile & attenuation (synchronous — uses cached polygons)
-        const samples = pathSamples(posA, posB, 24);
+        const samples = pathSamples(posA, posB, 64);
         const vegProfile = useVeg ? buildVegProfile(samples) : samples.map(()=>({vegType:null,attDB:0}));
         const vegAtten   = calcVegAttenuation(vegProfile, dist);
 
-        // Adjust effective ranges for vegetation loss
+        // Difracção: multiplicador de alcance adicional
+        const diff = los.diffraction;
+        const diffMultiplier = diff ? Math.pow(10, -diff.lossDB / 20) : 1.0;
+
         const rA_base=maxRangeKm(pA,effAltA,wf), rB_base=maxRangeKm(pB,effAltB,wf);
-        const rA=rA_base*vegAtten.multiplier, rB=rB_base*vegAtten.multiplier;
+        const rA=rA_base*vegAtten.multiplier*diffMultiplier;
+        const rB=rB_base*vegAtten.multiplier*diffMultiplier;
 
         if(circleA) map.removeLayer(circleA); if(circleB) map.removeLayer(circleB);
         circleA=L.circle(posA,{radius:rA*1000,color:'#4eff4e',weight:2,fillColor:'#5b7a47',fillOpacity:.12}).addTo(map);
@@ -1008,18 +1354,22 @@ async function updateLinkUI() {
 
         drawProfileChart(los, dist, vegProfile);
 
-        const lineColor = los.status==='blocked'?'#ff4e4e':los.status==='marginal'?'#ffcc00':'#4eff4e';
-        let qHTML = los.status==='blocked' ? "<span class='status-bad'>BLOQUEADO</span>"
-                  : los.status==='marginal' ? "<span class='status-marginal'>Marginal (Fresnel)</span>"
-                  : "<span class='status-good'>Excelente (LOS livre)</span>";
-        if(useVeg && vegAtten.totalDB>2) qHTML += ` <span style="color:#4eb84e;font-size:.8em">(+${vegAtten.totalDB.toFixed(1)}dB veg.)</span>`;
+        const lineColor = {good:'#4eff4e',marginal:'#ffcc00',diff_low:'#ff9900',diff_med:'#ff6600',blocked:'#ff4e4e'}[los.status]||'#ff4e4e';
+        const qHTML = {
+            good:     "<span class='status-good'>Excelente (LOS livre)</span>",
+            marginal: "<span class='status-marginal'>Marginal (Fresnel parcial)</span>",
+            diff_low: "<span class='status-diff-low'>🔆 Difracção fraca (≤10 dB) — possível</span>",
+            diff_med: "<span class='status-diff-med'>🔆 Difracção média (10-25 dB) — sinal fraco</span>",
+            blocked:  "<span class='status-bad'>BLOQUEADO (&gt;25 dB)</span>"
+        }[los.status] || "<span class='status-bad'>BLOQUEADO</span>";
 
         if(los.worstPoint && los.status!=='good') {
             const obstacleLat=los.worstPoint.lat, obstacleLng=los.worstPoint.lng;
             const obstacleAlt=Math.round(los.worstTerrainAlt)||0;
             const distFromA=getDistance(posA.lat,posA.lng,obstacleLat,obstacleLng).toFixed(2);
-            const obstacleLabel = los.status==='blocked' ? '⛔ OBSTRUÇÃO TOTAL' : '⚠️ OBSTRUÇÃO PARCIAL (Fresnel)';
+            const obstacleLabel={blocked:'⛔ OBSTRUÇÃO TOTAL',marginal:'⚠️ Obstrução Fresnel',diff_low:'🔆 Difracção Fraca',diff_med:'🔆 Difracção Média'}[los.status]||'⛔';
             const vegAtPoint = vegTypeAtPoint(obstacleLat, obstacleLng);
+            const diffRow = diff&&diff.lossDB>0.5 ? `<tr><td style="color:#ff9900;padding:1px 4px;">🔆 Difracção</td><td style="padding:1px 4px;">${diff.lossDB.toFixed(1)} dB (v=${diff.vMax.toFixed(2)})</td></tr>` : '';
             const obstaclePopup = `
               <div style="font-family:'Segoe UI',sans-serif;min-width:200px;font-size:12px;line-height:1.5;">
                 <div style="background:${lineColor}33;border-left:3px solid ${lineColor};padding:4px 7px;margin-bottom:6px;">
@@ -1031,14 +1381,15 @@ async function updateLinkUI() {
                   <tr><td style="color:#888;padding:1px 4px;">⛰ Altitude</td><td style="padding:1px 4px;"><b>${obstacleAlt} m</b></td></tr>
                   <tr><td style="color:#888;padding:1px 4px;">📏 Dist. de A</td><td style="padding:1px 4px;">${distFromA} km</td></tr>
                   <tr><td style="color:#888;padding:1px 4px;">📶 Fresnel inv.</td><td style="padding:1px 4px;">${(los.worstIntrusionPct*100).toFixed(0)}%</td></tr>
+                  ${diffRow}
                   ${vegAtPoint?`<tr><td style="color:#4eb84e;padding:1px 4px;">🌲 Vegetação</td><td style="padding:1px 4px;">${VEG_NAMES_PT[vegAtPoint]||vegAtPoint}</td></tr>`:''}
                 </table>
                 <div style="margin-top:5px;padding:3px 7px;background:#1a2417;border-radius:3px;font-size:10px;color:#7d9474;">
-                  Ponto crítico detectado pela análise de relevo real.
+                  64 amostras SRTM · Difracção ITU-R P.526/Deygout
                 </div>
               </div>`;
             obstacleMarker=L.circleMarker([obstacleLat,obstacleLng],{radius:9,color:lineColor,weight:2.5,fillColor:lineColor,fillOpacity:.85}).addTo(map);
-            obstacleMarker.bindPopup(obstaclePopup,{maxWidth:260}).openPopup();
+            obstacleMarker.bindPopup(obstaclePopup,{maxWidth:270}).openPopup();
         }
         polylineLink=L.polyline([posA,posB],{color:lineColor,weight:3,dashArray:'5,8'}).addTo(map);
 
@@ -1046,50 +1397,105 @@ async function updateLinkUI() {
         const nameB_label=document.getElementById('radioB-name').value||'Bravo';
         document.getElementById('res-distance').innerText=`Distância: ${dist.toFixed(2)} km`;
         document.getElementById('res-diff-alt').innerText=`ΔAlt efectiva: ${Math.abs(effAltA-effAltB)} m`;
-        document.getElementById('res-max-range').innerText=`Alc A→B: ${rA.toFixed(1)}km | Alc B→A: ${rB.toFixed(1)}km (c/ vegetação)`;
+        document.getElementById('res-max-range').innerText=`Alc A→B: ${rA.toFixed(1)}km | Alc B→A: ${rB.toFixed(1)}km`;
         document.getElementById('res-quality').innerHTML=`Qualidade: ${qHTML}`;
-        document.getElementById('res-fresnel').innerText=`Fresnel @446MHz: invasão máx ${(los.worstIntrusionPct*100).toFixed(0)}%`;
+        document.getElementById('res-fresnel').innerText=`Fresnel @446MHz: invasão máx ${(los.worstIntrusionPct*100).toFixed(0)}% · 64 amostras SRTM`;
 
-        // Vegetation summary in results
-        const vegEl = document.getElementById('res-vegetation');
-        if(useVeg && vegAtten.vegKm > 0.01) {
-            const typeStr = Object.keys(vegAtten.typeCounts).map(t=>VEG_NAMES_PT[t]||t).join(', ');
-            vegEl.innerText = `🌲 Vegetação: ${vegAtten.vegKm.toFixed(2)} km (${typeStr}) → −${vegAtten.totalDB.toFixed(1)} dB → alcance ×${vegAtten.multiplier.toFixed(2)}`;
-            vegEl.style.display='block';
-        } else {
-            vegEl.innerText = useVeg ? '🌲 Vegetação: sem cobertura no trajecto' : '🌲 Vegetação: desactivada';
-            vegEl.style.display='block';
-        }
+        const diffEl=document.getElementById('res-diffraction');
+        if(diff&&diff.lossDB>0.5){diffEl.innerText=`🔆 Difracção (ITU-R P.526): ${diff.lossDB.toFixed(1)} dB → ×${diffMultiplier.toFixed(2)}`;diffEl.style.display='block';}
+        else diffEl.style.display='none';
 
-        const statusLabel=los.status==='blocked'?'BLOQUEADO':los.status==='marginal'?'MARGINAL':'DESOBSTRUÍDO';
+        const vegEl=document.getElementById('res-vegetation');
+        if(useVeg&&vegAtten.vegKm>0.01){
+            const typeStr=Object.keys(vegAtten.typeCounts).map(t=>VEG_NAMES_PT[t]||t).join(', ');
+            vegEl.innerText=`🌲 Vegetação: ${vegAtten.vegKm.toFixed(2)} km (${typeStr}) → −${vegAtten.totalDB.toFixed(1)} dB → ×${vegAtten.multiplier.toFixed(2)}`;
+        } else { vegEl.innerText=useVeg?'🌲 Vegetação: sem cobertura no trajecto':'🌲 Vegetação: desactivada'; }
+        vegEl.style.display='block';
+
+        const statusLabel={good:'DESOBSTRUÍDO',marginal:'MARGINAL',diff_low:'DIFRACÇÃO FRACA',diff_med:'DIFRACÇÃO MÉDIA',blocked:'BLOQUEADO'}[los.status]||'BLOQUEADO';
         document.getElementById('log-output').innerText=
-            `[ENLACE BIDIRECIONAL A↔B]\n`+
-            `Data/Hora: ${new Date().toLocaleString('pt-PT')}\n`+
-            `Estado LOS: ${statusLabel}\n`+
+            `[ENLACE A↔B — 64 AMOSTRAS SRTM + DIFRACÇÃO ITU-R P.526]\n`+
+            `Data: ${new Date().toLocaleString('pt-PT')} | Estado: ${statusLabel}\n`+
             `Distância: ${dist.toFixed(3)} km\n\n`+
-            `RÁDIO A — ${nameA_label} (Emissor/Recetor)\n`+
-            `  GPS: ${posA.lat.toFixed(6)}°N, ${posA.lng.toFixed(6)}°E\n`+
-            `  Terreno: ${altA}m + Antena: ${offA}m = ${effAltA}m efect.\n`+
-            `  Potência TX: ${pA}W | Alcance base: ${rA_base.toFixed(1)} km | Com veg: ${rA.toFixed(1)} km\n\n`+
-            `RÁDIO B — ${nameB_label} (Emissor/Recetor)\n`+
-            `  GPS: ${posB.lat.toFixed(6)}°N, ${posB.lng.toFixed(6)}°E\n`+
-            `  Terreno: ${altB}m + Antena: ${offB}m = ${effAltB}m efect.\n`+
-            `  Potência TX: ${pB}W | Alcance base: ${rB_base.toFixed(1)} km | Com veg: ${rB.toFixed(1)} km\n\n`+
-            `VEGETAÇÃO NO TRAJECTO\n`+
-            `  ${vegAtten.vegKm>0.01 ? `${vegAtten.vegKm.toFixed(2)} km atravessados em vegetação\n  Atenuação extra: ${vegAtten.totalDB.toFixed(1)} dB → multiplicador de alcance: ×${vegAtten.multiplier.toFixed(3)}` : 'Nenhuma vegetação mapeada no percurso'}`+
-            (los.worstPoint?`\n\nPONTO CRÍTICO DE RELEVO\n  GPS: ${los.worstPoint.lat.toFixed(6)}°N, ${los.worstPoint.lng.toFixed(6)}°E\n  Altitude: ${Math.round(los.worstTerrainAlt)}m`:'');
+            `A — ${nameA_label}: GPS ${posA.lat.toFixed(6)}°N ${posA.lng.toFixed(6)}°E | ${effAltA}m | ${pA}W → ${rA.toFixed(1)}km\n`+
+            `B — ${nameB_label}: GPS ${posB.lat.toFixed(6)}°N ${posB.lng.toFixed(6)}°E | ${effAltB}m | ${pB}W → ${rB.toFixed(1)}km\n\n`+
+            (diff&&diff.lossDB>0.5?`DIFRACÇÃO: ${diff.lossDB.toFixed(1)} dB (v=${diff.vMax.toFixed(2)}) → ×${diffMultiplier.toFixed(3)}\n`:'')+
+            `VEGETAÇÃO: ${vegAtten.vegKm>0.01?`${vegAtten.vegKm.toFixed(2)} km → −${vegAtten.totalDB.toFixed(1)} dB → ×${vegAtten.multiplier.toFixed(3)}`:'sem cobertura'}`+
+            (los.worstPoint?`\nOBSTRUÇÃO: ${los.worstPoint.lat.toFixed(6)}°N ${los.worstPoint.lng.toFixed(6)}°E | ${Math.round(los.worstTerrainAlt)}m`:'');
 
         currentCalculatedData={
             dist:dist.toFixed(3),altA,offA,effAltA,latA:posA.lat.toFixed(6),lngA:posA.lng.toFixed(6),nameA:nameA_label,powerA:pA,
             altB,offB,effAltB,latB:posB.lat.toFixed(6),lngB:posB.lng.toFixed(6),nameB:nameB_label,powerB:pB,statusLabel,
-            vegDB:vegAtten.totalDB.toFixed(1), vegKm:vegAtten.vegKm.toFixed(2),
+            vegDB:vegAtten.totalDB.toFixed(1),vegKm:vegAtten.vegKm.toFixed(2),diffDB:diff?diff.lossDB.toFixed(1):'0',
             timestamp:new Date().toLocaleString('pt-PT'),weather:document.getElementById('weather').options[document.getElementById('weather').selectedIndex].text
         };
     } finally { busy=false; document.getElementById('loader').style.display='none'; }
 }
 
-async function checkLineOfSightReal(posA,posB,totalDist,effAltA,effAltB) {
-    const N=24, coords=[];
+// ══════════════════════════════════════════════════════
+//  KNIFE-EDGE DIFFRACTION  (ITU-R P.526-15)
+// ══════════════════════════════════════════════════════
+
+// Perda de difracção em dB para o parâmetro de Fresnel-Kirchhoff v
+function knifeEdgeLossDB(v) {
+    if (v <= -0.78) return 0;
+    if (v <= 0)     return 0;   // perda negligível abaixo da LOS
+    return 6.9 + 20 * Math.log10(Math.sqrt((v - 0.1) ** 2 + 1) + v - 0.1);
+}
+
+// Calcula a difracção dominante (obstáculo de Bullington) ao longo do perfil
+// Retorna { lossDB, v_max, peakIdx, peakH } onde peakH = altura acima da LOS (metros)
+function calcDiffraction(profileArr, totalDistKm, effAltA, effAltB, freqMHz = 446) {
+    const N      = profileArr.length - 1;
+    const lambda = 300 / freqMHz;      // comprimento de onda (metros)
+    const Reff   = 8495;               // raio efectivo com k=4/3 (km)
+
+    let vMax = -Infinity, peakIdx = -1, peakH = 0;
+
+    for (let i = 1; i < N; i++) {
+        const f    = i / N;
+        const d1km = totalDistKm * f;
+        const d2km = totalDistKm * (1 - f);
+        // Altura da linha de visão corrigida de curvatura
+        const losH = effAltA + (effAltB - effAltA) * f - (d1km * d2km) / (2 * Reff) * 1000;
+        const h    = profileArr[i] - losH;   // positivo = acima da LOS
+
+        // Parâmetro de Fresnel-Kirchhoff
+        const d1m = d1km * 1000, d2m = d2km * 1000;
+        const v   = h * Math.sqrt(2 * (d1m + d2m) / (lambda * d1m * d2m));
+
+        if (v > vMax) { vMax = v; peakIdx = i; peakH = h; }
+    }
+
+    // Deygout: soma perda sub-path A→pico e pico→B (apenas se há 2.º obstáculo relevante)
+    let extraLossDB = 0;
+    if (peakIdx > 1) {
+        // sub-path A → pico
+        const sub1 = profileArr.slice(0, peakIdx + 1);
+        const d1sub = totalDistKm * peakIdx / N;
+        const { lossDB: l1 } = calcDiffraction(sub1, d1sub, effAltA, profileArr[peakIdx], freqMHz);
+        // sub-path pico → B
+        const sub2 = profileArr.slice(peakIdx);
+        const d2sub = totalDistKm * (N - peakIdx) / N;
+        const { lossDB: l2 } = calcDiffraction(sub2, d2sub, profileArr[peakIdx], effAltB, freqMHz);
+        extraLossDB = Math.max(0, l1 + l2 - knifeEdgeLossDB(vMax)); // correcção Deygout
+    }
+
+    const lossDB = Math.max(0, knifeEdgeLossDB(vMax) + extraLossDB);
+    return { lossDB, vMax, peakIdx, peakH };
+}
+
+// Classifica o link com difracção integrada
+// Retorna status string: 'good' | 'marginal' | 'diff_low' | 'diff_med' | 'blocked'
+function classifyWithDiffraction(baseLOS, diff) {
+    if (baseLOS !== 'blocked') return baseLOS;   // manter good/marginal
+    if (diff.lossDB <= 10)  return 'diff_low';   // difracção fraca (≤10 dB)
+    if (diff.lossDB <= 25)  return 'diff_med';   // difracção média (10-25 dB)
+    return 'blocked';                             // >25 dB → sem sinal útil
+}
+
+async function checkLineOfSightReal(posA, posB, totalDist, effAltA, effAltB) {
+    const N=64, coords=[];
     for(let i=0;i<=N;i++) coords.push({lat:posA.lat+(posB.lat-posA.lat)*i/N, lng:posA.lng+(posB.lng-posA.lng)*i/N});
     const terrainElevs=await batchElevation(coords);
     const Reff=8495, freqMHz=446;
@@ -1109,7 +1515,15 @@ async function checkLineOfSightReal(posA,posB,totalDist,effAltA,effAltB) {
             if(ip>worstIntrusionPct){worstIntrusionPct=ip;worstPoint=coords[i];worstTerrainAlt=terrain;}
         } else if(ip>worstIntrusionPct&&status==='good') { worstIntrusionPct=ip; worstTerrainAlt=terrain; }
     }
-    return {status,worstIntrusionPct,worstPoint,worstTerrainAlt,profileArr,effAltA,effAltB};
+
+    // ── Knife-Edge Diffraction (ITU-R P.526 / Deygout) ───────────────────
+    let diffraction = null;
+    if (status === 'blocked') {
+        diffraction = calcDiffraction(profileArr, totalDist, effAltA, effAltB);
+        status = classifyWithDiffraction('blocked', diffraction);
+    }
+
+    return {status, worstIntrusionPct, worstPoint, worstTerrainAlt, profileArr, effAltA, effAltB, diffraction};
 }
 
 function drawProfileChart(losReport, totalDist, vegProfile=[]) {
@@ -1187,11 +1601,11 @@ async function runCoverageScanner() {
         const offA=parseInt(document.getElementById('radioA-offset').value)||0;
         const effAltA=altA+offA;
         const pA=parseFloat(document.getElementById('radioA-power').value)||0.1;
-        const wf=parseFloat(document.getElementById('weather').value);
+        const wf=getCurrentWeatherFactor();
         const maxKm=maxRangeKm(pA,effAltA,wf);
         if(scanPolygon) map.removeLayer(scanPolygon);
         if(circleA) map.removeLayer(circleA);
-        const rayCount=16, spr=5, allCoords=[], rayMeta=[];
+        const rayCount=60, spr=10, allCoords=[], rayMeta=[];
         for(let r=0;r<rayCount;r++) {
             const bearing=(r*360)/rayCount;
             for(let s=1;s<=spr;s++) {
@@ -1229,7 +1643,8 @@ async function runCoverageScanner() {
         document.getElementById('res-diff-alt').innerText=`Centro: ${nameA}`;
         document.getElementById('res-max-range').innerText=`Raio teórico: ${maxKm.toFixed(2)} km`;
         document.getElementById('res-quality').innerHTML=`<span class='status-good'>Cobertura traçada sobre relevo real</span>`;
-        document.getElementById('res-fresnel').innerText=`${rayCount} raios × ${spr} amostras de elevação`;
+        document.getElementById('res-fresnel').innerText=`${rayCount} raios × ${spr} amostras SRTM30m | 600 pontos de elevação`;
+        document.getElementById('res-diffraction').style.display='none';
         document.getElementById('log-output').innerText=`[SCANNER 360º]\nCentro: ${nameA}\nLat ${center.lat.toFixed(5)}, Lng ${center.lng.toFixed(5)}\nAlt: ${altA}m + ${offA}m = ${effAltA}m | ${pA}W\nAlcance teórico: ${maxKm.toFixed(2)} km`;
     } finally { busy=false; document.getElementById('loader').style.display='none'; }
 }
@@ -1241,6 +1656,7 @@ function startPlacingNode() {
     isPlacingNode=true;
     document.getElementById('placement-banner').style.display='block';
     map.getContainer().style.cursor='crosshair';
+    closeSidebar();
 }
 
 function cancelPlacement() {
@@ -1301,14 +1717,14 @@ function removeNetworkNode(id) {
     renderNodeListUI();
     // Clear analysis layers
     clearNetworkLayers();
-    document.getElementById('matrix-container').innerHTML='<div style="color:#445041;font-size:.75rem;padding:6px;">Rede alterada — re-analisar.</div>';
+    document.getElementById('matrix-container').innerHTML='<div style="color:#6b7d67;font-size:.75rem;padding:6px;">Rede alterada — re-analisar.</div>';
     document.getElementById('log-output').innerText='Nó removido. Pressione "Analisar Rede" para actualizar.';
 }
 
 function clearNetwork() {
     networkNodes.forEach(n=>{ try{map.removeLayer(n.marker);}catch(e){} });
     networkNodes=[]; clearNetworkLayers();
-    document.getElementById('matrix-container').innerHTML='<div style="color:#445041;font-size:.75rem;padding:6px;">Rede limpa.</div>';
+    document.getElementById('matrix-container').innerHTML='<div style="color:#6b7d67;font-size:.75rem;padding:6px;">Rede limpa.</div>';
     document.getElementById('log-output').innerText='Rede limpa.';
     renderNodeListUI();
 }
@@ -1317,7 +1733,7 @@ function renderNodeListUI() {
     const list=document.getElementById('node-list');
     document.getElementById('net-node-count').innerText=`(${networkNodes.length} nó${networkNodes.length!==1?'s':''})`;
     if(networkNodes.length===0) {
-        list.innerHTML='<div style="color:#445041;font-size:.75rem;font-style:italic;">Nenhum nó posicionado ainda.</div>';
+        list.innerHTML='<div style="color:#6b7d67;font-size:.75rem;font-style:italic;">Nenhum nó posicionado ainda.</div>';
         return;
     }
     list.innerHTML='';
@@ -1343,8 +1759,8 @@ async function runNetworkAnalysis() {
     clearNetworkLayers();
 
     try {
-        const wf=parseFloat(document.getElementById('net-weather').value);
-        const N_SAMPLES=14; // samples per link for elevation
+        const wf=getCurrentWeatherFactor();
+        const N_SAMPLES=32; // samples per link — mais resolução para difracção
         const pairs=[];
         for(let i=0;i<networkNodes.length;i++)
             for(let j=i+1;j<networkNodes.length;j++)
@@ -1392,7 +1808,7 @@ async function runNetworkAnalysis() {
         // Relay detection: for each blocked pair, check if any repeater bridges it
         const directReachable=(i,j)=>{
             const r=pairResults.find(p=>(p.i===i&&p.j===j)||(p.i===j&&p.j===i));
-            return r && r.inRange && r.los!=='blocked';
+            return r && r.inRange && (r.los==='good'||r.los==='marginal'||r.los==='diff_low');
         };
 
         const relayFor={}; // key "i-j" -> relay node index or null
@@ -1447,18 +1863,21 @@ async function runNetworkAnalysis() {
     } finally { busy=false; document.getElementById('net-loader').style.display='none'; }
 }
 
-function analyzeSegment(terrainSlice,totalDist,effAltA,effAltB) {
+function analyzeSegment(terrainSlice, totalDist, effAltA, effAltB) {
     const N=terrainSlice.length-1, Reff=8495, freqMHz=446;
-    let status='good';
+    let wasBlocked=false;
     for(let i=1;i<N;i++) {
         const f=i/N, d1=totalDist*f, d2=totalDist-d1;
         const lineH=effAltA+(effAltB-effAltA)*f-(d1*d2)/(2*Reff)*1000;
         const terrain=terrainSlice[i], clearance=lineH-terrain;
-        if(clearance<0) return 'blocked';
+        if(clearance<0) { wasBlocked=true; break; }
         const fres=fresnelRadius(d1,d2,totalDist,freqMHz);
-        if(fres>0&&(fres-clearance)/fres>0.4&&status!=='blocked') status='marginal';
+        if(fres>0&&(fres-clearance)/fres>0.4) return 'marginal';
     }
-    return status;
+    if(!wasBlocked) return 'good';
+    // Knife-edge difracção para links bloqueados
+    const diff=calcDiffraction(terrainSlice, totalDist, effAltA, effAltB);
+    return classifyWithDiffraction('blocked', diff);
 }
 
 function renderConnectivityMatrix(pairResults,relayFor) {
@@ -1475,13 +1894,17 @@ function renderConnectivityMatrix(pairResults,relayFor) {
             const relay=relayFor[`${ii}-${jj}`];
             let cls,txt,title;
             if(res.inRange&&res.los==='good'){
-                cls='m-good';txt=`✓`;title=`${res.dist.toFixed(1)}km — LOS livre`;
+                cls='m-good';txt='✓';title=`${res.dist.toFixed(1)}km — LOS livre`;
             } else if(res.inRange&&res.los==='marginal'){
-                cls='m-marginal';txt=`⚠`;title=`${res.dist.toFixed(1)}km — Fresnel obstruído`;
+                cls='m-marginal';txt='⚠';title=`${res.dist.toFixed(1)}km — Fresnel obstruído`;
+            } else if(res.inRange&&res.los==='diff_low'){
+                cls='m-diff-low';txt='🔆';title=`${res.dist.toFixed(1)}km — Difracção fraca (≤10dB)`;
+            } else if(res.inRange&&res.los==='diff_med'){
+                cls='m-diff-med';txt='📶';title=`${res.dist.toFixed(1)}km — Difracção média (10-25dB)`;
             } else if(relay!==undefined){
-                cls='m-relay';txt=`⟳`;title=`Via ${networkNodes[relay].name} (${res.dist.toFixed(1)}km directo)`;
+                cls='m-relay';txt='⟳';title=`Via ${networkNodes[relay].name} (${res.dist.toFixed(1)}km directo)`;
             } else {
-                cls='m-blocked';txt=`✗`;title=`${res.dist.toFixed(1)}km — Sem sinal`;
+                cls='m-blocked';txt='✗';title=`${res.dist.toFixed(1)}km — Sem sinal`;
             }
             html+=`<td class="${cls}" title="${title}">${txt}<br><small style="opacity:.6">${res.dist.toFixed(1)}km${res.vegDB>1?' 🌲':''}</small></td>`;
         }
@@ -1489,8 +1912,10 @@ function renderConnectivityMatrix(pairResults,relayFor) {
     }
     html+='</tbody></table>';
     html+=`<div style="padding:4px 6px;font-size:.68rem;color:#5b7a47;">
-        <span class="status-good">✓ Directo</span> &nbsp;
+        <span class="status-good">✓ LOS livre</span> &nbsp;
         <span class="status-marginal">⚠ Marginal</span> &nbsp;
+        <span class="status-diff-low">🔆 Difr. fraca</span> &nbsp;
+        <span class="status-diff-med">📶 Difr. média</span> &nbsp;
         <span class="status-relay">⟳ Via Repetidor</span> &nbsp;
         <span class="status-bad">✗ Bloqueado</span>
     </div>`;
@@ -1613,6 +2038,302 @@ async function importScenarioJSON(event) {
 // ══════════════════════════════════════════════════════
 //  OVERLAYS
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  WEATHER — TEMPO REAL + PREVISÃO 7 DIAS (Open-Meteo)
+// ══════════════════════════════════════════════════════
+
+function getCurrentWeatherFactor() {
+    if (wxSelectedDay !== null) return wxActiveFactor;
+    // Manual fallback: ler do select activo
+    const mode = document.getElementById('analysis-mode').value;
+    const selId = mode === 'network' ? 'net-weather' : 'weather';
+    return parseFloat(document.getElementById(selId)?.value || '1.0');
+}
+
+function wmoInfo(code) { return WMO_MAP[code] || WMO_MAP[0]; }
+
+function setWxNetSummary() {
+    const el = document.getElementById('wx-net-summary');
+    if (!el) return;
+    const f = getCurrentWeatherFactor();
+    const clr = f >= 0.90 ? '#4eff4e' : f >= 0.75 ? '#ffcc00' : '#ff6600';
+    el.innerHTML = `Fator activo: <b style="color:${clr}">×${f.toFixed(2)}</b>${wxSelectedDay !== null ? ' (tempo real)' : ' (manual)'}`;
+}
+
+async function fetchWeatherForMap() {
+    const center = map.getCenter();
+    const btn = event?.target;
+    if (btn) { btn.disabled=true; btn.innerText='⏳ A carregar…'; }
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${center.lat.toFixed(4)}&longitude=${center.lng.toFixed(4)}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&current_weather=true&timezone=auto&forecast_days=7`;
+        const res = await _fetchTimeout(url, {}, 8000);
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        wxData = await res.json();
+
+        // Activar condições actuais imediatamente
+        const curInfo = wmoInfo(wxData.current_weather.weathercode);
+        wxActiveFactor  = curInfo.factor;
+        wxSelectedDay   = -1;
+        wxForecastFactors = wxData.daily.weathercode.map(c => wmoInfo(c).factor);
+
+        renderWeatherPanel();
+        triggerRecalculate();
+    } catch(e) {
+        const panel = document.getElementById('wx-realtime-panel');
+        if (panel) {
+            panel.style.display='block';
+            document.getElementById('wx-current-box').innerHTML =
+                `<span style="color:#ff6600">⚠️ Não foi possível obter dados meteorológicos</span>`;
+        }
+    } finally {
+        if (btn) { btn.disabled=false; btn.innerText='📍 Carregar Tempo Real (mapa actual)'; }
+    }
+}
+
+function renderWeatherPanel() {
+    if (!wxData) return;
+    const panel = document.getElementById('wx-realtime-panel');
+    if (panel) panel.style.display = 'block';
+
+    const cur     = wxData.current_weather;
+    const curInfo = wmoInfo(cur.weathercode);
+    const fClr    = curInfo.factor >= 0.90 ? '#4eff4e' : curInfo.factor >= 0.75 ? '#ffcc00' : '#ff6600';
+
+    const curBox = document.getElementById('wx-current-box');
+    if (curBox) curBox.innerHTML =
+        `${curInfo.emoji} <b>${curInfo.name}</b> — ${cur.temperature}°C, vento ${cur.windspeed} km/h<br>
+         Propagação: <span style="color:${fClr}"><b>×${curInfo.factor.toFixed(2)}</b></span>`;
+
+    // Build forecast strip
+    const strip = document.getElementById('wx-strip');
+    if (!strip) return;
+    strip.innerHTML = '';
+    const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+    // "Agora" pill
+    const nowEl = _makeDayPill(curInfo.emoji, 'Agora', Math.round(cur.temperature)+'°', wxSelectedDay===-1, ()=>selectWxDay(-1));
+    strip.appendChild(nowEl);
+
+    wxData.daily.time.forEach((dateStr, i) => {
+        const info = wmoInfo(wxData.daily.weathercode[i]);
+        const maxT = Math.round(wxData.daily.temperature_2m_max[i]);
+        const minT = Math.round(wxData.daily.temperature_2m_min[i]);
+        const dName = dayNames[new Date(dateStr).getDay()];
+        const el = _makeDayPill(info.emoji, dName, `${maxT}/${minT}°`, wxSelectedDay===i, ()=>selectWxDay(i));
+        el.title = `${info.name} · Máx:${maxT}° Mín:${minT}° · Propagação: ×${info.factor.toFixed(2)}`;
+        strip.appendChild(el);
+    });
+
+    updateWxSelectedLabel();
+    setWxNetSummary();
+}
+
+function _makeDayPill(emoji, name, temp, selected, onClick) {
+    const d = document.createElement('div');
+    d.className = 'wx-day' + (selected ? ' wx-selected' : '');
+    d.innerHTML = `<span class="wx-emoji">${emoji}</span><span class="wx-name">${name}</span><span class="wx-temp">${temp}</span>`;
+    d.onclick = onClick;
+    return d;
+}
+
+function selectWxDay(idx) {
+    wxSelectedDay = idx;
+    if (idx === -1 && wxData) {
+        wxActiveFactor = wmoInfo(wxData.current_weather.weathercode).factor;
+    } else if (idx >= 0 && wxForecastFactors.length > idx) {
+        wxActiveFactor = wxForecastFactors[idx];
+    }
+    // Update strip highlights
+    document.querySelectorAll('.wx-day').forEach((el,i) => {
+        const dayIdx = i === 0 ? -1 : i-1;
+        el.classList.toggle('wx-selected', dayIdx === idx);
+    });
+    // Sync manual selects to closest option
+    ['weather','net-weather'].forEach(id=>{
+        const sel=document.getElementById(id);
+        if(!sel) return;
+        let best=null, bestDiff=Infinity;
+        Array.from(sel.options).forEach(o=>{
+            const diff=Math.abs(parseFloat(o.value)-wxActiveFactor);
+            if(diff<bestDiff){bestDiff=diff;best=o;}
+        });
+        if(best) best.selected=true;
+    });
+    updateWxSelectedLabel();
+    setWxNetSummary();
+    triggerRecalculate();
+}
+
+function selectManualWeather() {
+    wxSelectedDay = null;
+    wxActiveFactor = parseFloat(document.getElementById('weather')?.value || '1.0');
+    document.querySelectorAll('.wx-day').forEach(d=>d.classList.remove('wx-selected'));
+    updateWxSelectedLabel();
+    setWxNetSummary();
+    triggerRecalculate();
+}
+
+function updateWxSelectedLabel() {
+    const el = document.getElementById('wx-selected-info');
+    if (!el) return;
+    if (wxSelectedDay === null) { el.innerText=''; return; }
+    if (wxSelectedDay === -1 && wxData) {
+        const i = wmoInfo(wxData.current_weather.weathercode);
+        el.innerText = `▶ Condições actuais: ${i.name} (×${i.factor.toFixed(2)})`;
+    } else if (wxData) {
+        const i = wmoInfo(wxData.daily.weathercode[wxSelectedDay]);
+        el.innerText = `▶ ${wxData.daily.time[wxSelectedDay]}: ${i.name} (×${i.factor.toFixed(2)})`;
+    }
+}
+
+// ══════════════════════════════════════════════════════
+//  INFRAESTRUTURA CRÍTICA (OSM Overpass + REP estático)
+// ══════════════════════════════════════════════════════
+
+function setInfraStatus(msg, style) {
+    const el = document.getElementById('infra-status');
+    if (!el) return;
+    if (!msg) { el.style.display='none'; return; }
+    el.style.display='block'; el.innerText=msg;
+    const cfg={ok:{bg:'#0d2b0d',col:'#4eff4e'},warn:{bg:'#2b2b00',col:'#ffcc00'},error:{bg:'#2b0d0d',col:'#ff6600'}}[style]||{bg:'#1a2117',col:'#a4bfa3'};
+    el.style.background=cfg.bg; el.style.color=cfg.col;
+}
+
+// O servidor público overpass-api.de fica frequentemente sobrecarregado (504) sob procura elevada.
+// Mantemos uma lista de mirrors e tentamos sequencialmente antes de desistir.
+const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+];
+
+async function loadInfrastructure() {
+    const bounds = map.getBounds();
+    const s=bounds.getSouth().toFixed(4), w=bounds.getWest().toFixed(4);
+    const n=bounds.getNorth().toFixed(4), e=bounds.getEast().toFixed(4);
+
+    // Construir query combinada com todos os tipos OSM
+    const qParts = Object.entries(INFRA_CFG)
+        .map(([,cfg])=>`node${cfg.tags}(${s},${w},${n},${e});way${cfg.tags}(${s},${w},${n},${e});`)
+        .join('');
+    const q = `[out:json][timeout:25];(${qParts});out center;`;
+    const body = 'data='+encodeURIComponent(q);
+
+    const areaDeg2 = (bounds.getNorth()-bounds.getSouth())*(bounds.getEast()-bounds.getWest());
+    if (areaDeg2 > 3) {
+        setInfraStatus('⚠️ Área do mapa muito grande — aproxime o zoom para um carregamento mais rápido e fiável.', 'warn');
+    }
+
+    let data = null, lastErr = null;
+    for (let i=0; i<OVERPASS_ENDPOINTS.length; i++) {
+        try {
+            setInfraStatus(`⬇ A carregar infraestrutura OSM… (servidor ${i+1}/${OVERPASS_ENDPOINTS.length})`, 'warn');
+            const res = await _fetchTimeout(OVERPASS_ENDPOINTS[i], {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body
+            }, 20000);
+            if (!res.ok) throw new Error('HTTP '+res.status);
+            data = await res.json();
+            break;
+        } catch(e) {
+            lastErr = e;
+            console.warn('[Infra] Servidor falhou:', OVERPASS_ENDPOINTS[i], e);
+        }
+    }
+
+    if (!data) {
+        const reason = lastErr?.name==='AbortError' ? 'tempo limite excedido' : (lastErr?.message || 'erro de rede');
+        setInfraStatus(`⚠️ Todos os servidores Overpass falharam (${reason}). Tente novamente ou aproxime o zoom.`, 'error');
+        console.warn('[Infra] Todos os mirrors falharam. Último erro:', lastErr);
+        return;
+    }
+
+    // Limpar caches
+    Object.keys(infraCache).forEach(k=>infraCache[k]=[]);
+
+    data.elements.forEach(el=>{
+        const t=el.tags||{}, lat=el.lat||el.center?.lat, lng=el.lon||el.center?.lon;
+        if(!lat||!lng) return;
+        const pt={lat,lng,name:t.name||t['name:pt']||t.amenity||t.waterway||'?',tags:t};
+        if(['hospital','clinic','health_centre','doctors'].includes(t.amenity)) infraCache.health.push(pt);
+        else if(t.amenity==='fire_station') infraCache.fire.push(pt);
+        else if(t.amenity==='police') infraCache.police.push(pt);
+        else if(t.amenity==='fuel') infraCache.fuel.push(pt);
+        else if(t.waterway==='dam'||t.man_made==='dam'||t.waterway==='weir') infraCache.water.push(pt);
+    });
+
+    infraLoaded=true;
+    const total=Object.values(infraCache).reduce((s,a)=>s+a.length,0);
+    setInfraStatus(`✅ ${total} pontos OSM carregados — activar checkboxes para visualizar`, 'ok');
+
+    // Actualizar camadas activas
+    Object.keys(INFRA_CFG).forEach(type=>{
+        if(document.getElementById(`infra-${type}`)?.checked) renderInfraLayer(type);
+    });
+}
+
+function toggleInfraLayer(type) {
+    const chk = document.getElementById(`infra-${type}`);
+    if (!chk) return;
+    if (!chk.checked) {
+        if(infraLayers[type]){try{map.removeLayer(infraLayers[type]);}catch(e){} infraLayers[type]=null;}
+        return;
+    }
+    if (type === 'rep') { renderREPLayer(); return; }
+    if (!infraLoaded) {
+        setInfraStatus('⚠️ Clique primeiro em "Carregar OSM".', 'warn');
+        return;
+    }
+    renderInfraLayer(type);
+}
+
+function renderInfraLayer(type) {
+    if(infraLayers[type]){try{map.removeLayer(infraLayers[type]);}catch(e){}}
+    const points = infraCache[type]||[];
+    const cfg = INFRA_CFG[type];
+    if(!cfg||points.length===0) return;
+    const layer=L.layerGroup();
+    points.forEach(pt=>{
+        const addr=[pt.tags['addr:street'],pt.tags['addr:city']].filter(Boolean).join(', ');
+        const m=L.circleMarker([pt.lat,pt.lng],{radius:6,color:cfg.color,weight:2,fillColor:cfg.color,fillOpacity:.85});
+        m.bindPopup(`<div style="font-family:'Segoe UI',sans-serif;font-size:12px;min-width:160px;">
+            <b style="color:${cfg.color}">${cfg.emoji} ${pt.name}</b><br>
+            <span style="color:#888;font-size:11px;">${cfg.label}</span><br>
+            ${addr?`📍 ${addr}<br>`:''}
+            <span style="font-size:10px;color:#7d9474;">${pt.lat.toFixed(5)}°, ${pt.lng.toFixed(5)}°</span></div>`);
+        layer.addLayer(m);
+    });
+    infraLayers[type]=layer;
+    map.addLayer(layer);
+}
+
+function renderREPLayer() {
+    if(infraLayers.rep){try{map.removeLayer(infraLayers.rep);}catch(e){}}
+    const layer=L.layerGroup();
+    REP_NETWORK.forEach(rep=>{
+        const col = rep.mode==='D-STAR'?'#00ffff':rep.mode==='DMR'?'#ff69b4':rep.band==='UHF'?'#da70d6':'#b44fda';
+        const m=L.circleMarker([rep.lat,rep.lng],{radius:7,color:'#fff',weight:1.5,fillColor:col,fillOpacity:.9});
+        m.bindPopup(`<div style="font-family:'Segoe UI',sans-serif;font-size:12px;min-width:185px;">
+            <div style="background:${col}33;border-left:3px solid ${col};padding:4px 7px;margin-bottom:5px;">
+                <b style="color:${col};font-size:13px;">📡 ${rep.id}</b>
+            </div>
+            <table style="border-collapse:collapse;width:100%;">
+                <tr><td style="color:#888;padding:1px 4px;">📍</td><td>${rep.loc}</td></tr>
+                <tr><td style="color:#888;padding:1px 4px;">📤 TX</td><td style="font-family:monospace;">${rep.freq_out} MHz</td></tr>
+                <tr><td style="color:#888;padding:1px 4px;">📥 RX</td><td style="font-family:monospace;">${rep.freq_in} MHz</td></tr>
+                ${rep.ctcss?`<tr><td style="color:#888;padding:1px 4px;">🔑 CTCSS</td><td>${rep.ctcss} Hz</td></tr>`:''}
+                <tr><td style="color:#888;padding:1px 4px;">📡 Modo</td><td>${rep.mode} ${rep.band}</td></tr>
+                <tr><td style="color:#888;padding:1px 4px;">⛰ Alt.</td><td>${rep.alt} m</td></tr>
+            </table>
+            <div style="margin-top:4px;font-size:10px;color:#7d9474;padding:3px 7px;background:#1a2417;border-radius:3px;">
+                Dados aprox. — verificar com REP/ARAM.</div></div>`);
+        layer.addLayer(m);
+    });
+    infraLayers.rep=layer;
+    map.addLayer(layer);
+}
+
 function toggleRepeaters() {
     if(!map) return;
     if(document.getElementById('show-repeaters').checked) {
