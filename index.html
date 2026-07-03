@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Simulador de Alcance Rádio PMR/VHF/UHF</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous" />
 <style>
 *, *::before, *::after { box-sizing: border-box; }
 :root { --bottom-h:155px; }
@@ -12,9 +12,15 @@ html { -webkit-text-size-adjust:100%; }
 body { margin:0; padding:0; font-family:'Segoe UI',Tahoma,sans-serif; background:#151a12; color:#e0e5de; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden; }
 #fallback-banner { display:none; color:#fff; text-align:center; padding:5px 8px; font-size:.75rem; font-weight:bold; border-bottom:1px solid #444; z-index:4000; transition:background .4s; }
 #placement-banner { display:none; background:#1a3d26; color:#4eff4e; text-align:center; padding:5px; font-size:.8rem; font-weight:bold; border-bottom:2px solid #4eff4e; z-index:4000; cursor:pointer; }
+#calc-banner { display:none; background:#1a2f3d; color:#4ecbff; text-align:center; padding:5px 8px; font-size:.8rem; font-weight:bold; border-bottom:2px solid #4ecbff; z-index:4000; }
+#calc-banner .loader-dot { background:#4ecbff; }
 .main-container { display:flex; flex:1; width:100%; height:calc(100vh - var(--bottom-h)); height:calc(100dvh - var(--bottom-h)); position:relative; min-height:0; }
 #sidebar { width:355px; min-width:355px; background:#20271d; padding:12px; box-shadow:2px 0 5px rgba(0,0,0,.5); display:flex; flex-direction:column; gap:9px; height:100%; overflow-y:auto; z-index:1000; transition:transform .28s ease; position:relative; }
-#map { flex:1; height:100%; background:#242424; }
+#map { flex:1; height:100%; background:#242424; position:relative; }
+#measure-btn { position:absolute; top:10px; right:10px; z-index:1200; padding:8px 12px; min-height:auto; width:auto; background:#20271d; border:1px solid #4a5d43; border-radius:6px; color:#e0e5de; font-size:.8rem; font-weight:bold; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.5); }
+#measure-btn.active { background:#3d2f14; border-color:#e8b04a; color:#ffd479; }
+#measure-readout { display:none; position:absolute; top:52px; right:10px; z-index:1200; background:#20271dee; border:1px solid #4a5d43; border-radius:6px; color:#e0e5de; font-size:.74rem; padding:7px 10px; max-width:230px; box-shadow:0 2px 8px rgba(0,0,0,.5); line-height:1.5; }
+#measure-readout b { color:#ffd479; }
 h2 { color:#8fa87b; margin:0; font-size:1.1rem; border-bottom:1px solid #4a5d43; padding-bottom:3px; }
 h3 { color:#b0c4a4; margin:2px 0; font-size:.9rem; border-left:3px solid #5b7a47; padding-left:5px; }
 button { padding:7px; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:.78rem; width:100%; transition:background .2s; }
@@ -42,6 +48,7 @@ select, input[type=text], input[type=number] { padding:5px; border-radius:4px; b
 .status-relay { color:#00c3ff; font-weight:bold; }
 .status-diff-low { color:#ff9900; font-weight:bold; }
 .status-diff-med  { color:#ff6600; font-weight:bold; }
+.status-outrange  { color:#b76bda; font-weight:bold; }
 /* Weather strip */
 .wx-strip { display:flex; gap:2px; margin:4px 0; overflow-x:auto; padding-bottom:2px; }
 .wx-day { flex:1; min-width:38px; background:#1a2417; border:1px solid #2d3b28; border-radius:4px; text-align:center; padding:4px 2px 3px; cursor:pointer; font-size:.62rem; transition:background .2s; user-select:none; }
@@ -52,10 +59,6 @@ select, input[type=text], input[type=number] { padding:5px; border-radius:4px; b
 .wx-temp { color:#a4bfa3; display:block; }
 .wx-current-box { background:#1a2417; border-radius:4px; padding:5px 8px; font-size:.75rem; border:1px solid #2d3b28; line-height:1.4; }
 .wx-selected-info { font-size:.68rem; color:#ffcc00; padding:2px 0; min-height:14px; }
-/* Infrastructure */
-.infra-grid { display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-top:4px; }
-.infra-item { display:flex; align-items:center; gap:4px; font-size:.72rem; cursor:pointer; padding:3px 5px; border-radius:3px; background:#1a2117; border:1px solid #2a3424; }
-.infra-item input[type=checkbox] { width:auto; flex-shrink:0; cursor:pointer; }
 .altitude-badge { font-size:.73rem; color:#a4bfa3; font-style:italic; }
 .fresnel-note { font-size:.7rem; color:#7d9474; }
 /* Node list */
@@ -96,18 +99,16 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
 .howto-step { margin-top:10px; border-left:2px solid #5b7a47; padding-left:10px; margin-bottom:12px; }
 .howto-step strong { color:#8fa87b; font-size:.92rem; display:block; margin-bottom:2px; }
 .howto-step p { margin:0; font-size:.82rem; color:#cbd5c8; line-height:1.4; }
+.freq-grid { display:grid; gap:2px 8px; font-family:'Courier New',monospace; font-size:.72rem; background:#151a12; padding:8px 10px; border-radius:4px; color:#a4bfa3; }
+.freq-grid .freq-highlight { color:#ffcc00; font-weight:bold; }
 .loader-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#ffcc00; margin-left:4px; animation:pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.2;} }
-/* Leaflet custom icons */
-.node-icon { width:24px; height:24px; border-radius:50%; border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.7); }
 
-/* Mobile drawer sidebar + utilities overlay trigger */
+/* Mobile drawer sidebar */
 #menu-toggle { display:none; position:fixed; top:10px; left:10px; z-index:2600; width:44px; height:44px; background:#20271d; border:1px solid #4a5d43; border-radius:8px; color:#e0e5de; font-size:1.3rem; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,.6); cursor:pointer; }
 #sidebar-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:2400; }
 #sidebar-backdrop.open { display:block; }
 .sidebar-close-btn { display:none; }
-.utility-trigger-btn { background:#3d2a14; border:1px solid #b8862f; color:#ffcc00; }
-.utility-trigger-btn:hover { background:#4d3618; }
 
 @media (max-width:900px) {
   #menu-toggle { display:flex; }
@@ -122,8 +123,8 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
 
   button, .btn-row button { min-height:44px; padding:11px; font-size:.85rem; }
   select, input[type=text], input[type=number] { min-height:44px; padding:9px; font-size:16px; }
-  .checkbox-container, .infra-item { min-height:44px; font-size:.85rem; }
-  .checkbox-container input, .infra-item input[type=checkbox] { width:20px; height:20px; }
+  .checkbox-container { min-height:44px; font-size:.85rem; }
+  .checkbox-container input { width:20px; height:20px; }
   .node-btn { width:38px; height:38px; }
   .close-btn { width:48px; height:48px; }
   .modal-content { width:94%; margin:4vh auto; max-height:90vh; padding:16px; }
@@ -132,9 +133,9 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
 }
 
 @media (max-width:480px) {
-  .infra-grid { grid-template-columns:1fr; }
   .row-inputs { flex-direction:column; }
   #results { font-size:.88rem; }
+  #freq-ctcss-grid { grid-template-columns:1fr 1fr !important; }
 }
 </style>
 </head>
@@ -145,6 +146,7 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
 
 <div id="fallback-banner">A verificar APIs de elevação…</div>
 <div id="placement-banner" onclick="cancelPlacement()">📍 Clique no mapa para posicionar o nó — <u>cancelar</u></div>
+<div id="calc-banner"></div>
 
 <div id="howtoModal" class="modal">
   <div class="modal-content">
@@ -160,7 +162,7 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
       <a href="#sec-veg" onclick="document.getElementById('sec-veg').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">4. Vegetação</a> ·
       <a href="#sec-calc" onclick="document.getElementById('sec-calc').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">5. Modelo de cálculo</a> ·
       <a href="#sec-cenarios" onclick="document.getElementById('sec-cenarios').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">6. Cenários</a> ·
-      <a href="#sec-meteo" onclick="document.getElementById('sec-meteo').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">7. Meteo + Infra</a> ·
+      <a href="#sec-meteo" onclick="document.getElementById('sec-meteo').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">7. Meteo + REP</a> ·
       <a href="#sec-limites" onclick="document.getElementById('sec-limites').scrollIntoView()" style="color:#5b9a47;text-decoration:none;">8. Limitações</a>
     </div>
 
@@ -337,8 +339,8 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
       <p>O ficheiro JSON exportado contém todos os parâmetros da rede e pode ser partilhado com outros membros da equipa (email, USB, etc.). Para importar, basta escolher o ficheiro — a rede é reconstituída automaticamente. O modo de operação muda para <b>Rede Multi-Nó</b> automaticamente ao carregar.</p>
     </div>
 
-    <!-- 7. METEOROLOGIA + INFRAESTRUTURA -->
-    <div id="sec-meteo" style="color:#8fa87b;font-weight:bold;font-size:.95rem;border-left:3px solid #5b7a47;padding-left:8px;margin:14px 0 6px;">7. Meteorologia Real e Infraestrutura Crítica</div>
+    <!-- 7. METEOROLOGIA + REP -->
+    <div id="sec-meteo" style="color:#8fa87b;font-weight:bold;font-size:.95rem;border-left:3px solid #5b7a47;padding-left:8px;margin:14px 0 6px;">7. Meteorologia Real e Rede REP</div>
 
     <div class="howto-step">
       <strong>🌤 Meteorologia Real — Open-Meteo + Previsão 7 Dias</strong>
@@ -349,9 +351,8 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
     </div>
 
     <div class="howto-step">
-      <strong>🏗 Infraestrutura Crítica (OSM + Rede REP)</strong>
-      <p><b>Camadas OSM (via Overpass):</b> Clique em <b>⬇ Carregar OSM</b> para buscar todos os pontos de infraestrutura na vista actual do mapa. Depois active/desactive cada camada com os checkboxes: 🏥 Saúde · 🚒 Bombeiros · 👮 GNR/PSP · ⛽ Combustível · 💧 Barragens. Cada marcador tem popup com nome, tipo e coordenadas GPS.</p>
-      <p style="margin-top:5px;"><b>📡 Repetidores REP (dados estáticos pré-carregados):</b> 25 repetidores de referência cobrindo Portugal continental — VHF FM, UHF FM, D-STAR e DMR. Cada popup mostra frequência TX/RX, tom CTCSS, modo e altitude. Activar o checkbox <b>📡 Repeaters REP</b> não requer carregar OSM. <i>Dados aproximados de fontes públicas (REP/ARAM) — verificar antes de operar.</i></p>
+      <strong>📡 Repetidores REP</strong>
+      <p>25 repetidores de referência cobrindo Portugal continental — VHF FM, UHF FM, D-STAR e DMR. Dados estáticos pré-carregados (sem consulta de rede, aparecem instantaneamente). Active o checkbox <b>📡 Repetidores REP</b> no painel "Modo & Visualização" para os mostrar no mapa. Cada popup mostra frequência TX/RX, tom CTCSS, modo e altitude. <i>Dados aproximados de fontes públicas (REP/ARAM) — verificar antes de operar.</i></p>
     </div>
 
     <!-- 8. LIMITAÇÕES -->
@@ -372,21 +373,35 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
   </div>
 </div>
 
-<div id="utilityModal" class="modal">
+<div id="freqModal" class="modal">
   <div class="modal-content">
-    <span class="close-btn" onclick="closeUtilityOverlay()">&times;</span>
-    <h2 style="margin-top:0;color:#8fa87b;border-bottom:1px solid #4a5d43;padding-bottom:6px;">🏗 Infraestrutura Crítica</h2>
-    <div class="infra-grid">
-      <label class="infra-item"><input type="checkbox" id="infra-health"  onchange="toggleInfraLayer('health')">  🏥 Saúde</label>
-      <label class="infra-item"><input type="checkbox" id="infra-fire"    onchange="toggleInfraLayer('fire')">    🚒 Bombeiros</label>
-      <label class="infra-item"><input type="checkbox" id="infra-police"  onchange="toggleInfraLayer('police')">  👮 GNR/PSP</label>
-      <label class="infra-item"><input type="checkbox" id="infra-fuel"    onchange="toggleInfraLayer('fuel')">    ⛽ Combustível</label>
-      <label class="infra-item"><input type="checkbox" id="infra-water"   onchange="toggleInfraLayer('water')">   💧 Barragens</label>
-      <label class="infra-item"><input type="checkbox" id="infra-rep"     onchange="toggleInfraLayer('rep')">     📡 Repeaters REP</label>
+    <span class="close-btn" onclick="closeFreqModal()">&times;</span>
+    <h2 style="margin-top:0;color:#8fa87b;border-bottom:1px solid #4a5d43;padding-bottom:6px;">📻 Referência de Frequências PMR446</h2>
+
+    <div class="howto-step">
+      <strong>📡 16 Canais PMR446 (446 MHz · FM · 0.5W · uso livre UE)</strong>
+      <p style="font-size:.72rem;color:#7d9474;margin:2px 0 6px;">Espaçamento de 12.5 kHz. Os canais 9–16 foram libertados para uso em 2018 (antes reservados). Programe estes valores manualmente em qualquer rádio VHF/UHF programável (Baofeng, Quansheng, etc.) para comunicar com equipamento PMR446 padrão.</p>
+      <div class="freq-grid" id="freq-pmr-grid" style="grid-template-columns:1fr 1fr;"></div>
     </div>
-    <button class="btn-neutral" onclick="loadInfrastructure()" style="margin-top:10px;">⬇ Carregar OSM (vista actual do mapa)</button>
-    <div id="infra-status" style="display:none;font-size:.75rem;padding:6px 8px;border-radius:4px;margin-top:6px;"></div>
-    <p style="font-size:.72rem;color:#7d9474;margin-top:10px;line-height:1.5;">Active os checkboxes para mostrar cada camada no mapa. Os repetidores REP (📡) usam dados estáticos e não requerem "Carregar OSM".</p>
+
+    <div class="howto-step">
+      <strong>💡 Canal de chamada</strong>
+      <p>Por convenção informal (não é regra oficial), o <b>Canal 1 (446.00625 MHz)</b> é frequentemente usado como ponto de encontro inicial em muitos países europeus — à semelhança do canal 9 no CB. Combine sempre um canal e subtom com a sua equipa antes de operar.</p>
+    </div>
+
+    <div class="howto-step">
+      <strong>🔑 Subtons CTCSS (38 tons padrão)</strong>
+      <p style="font-size:.72rem;color:#7d9474;margin:2px 0 6px;">O subtom (CTCSS) não muda a frequência do canal — apenas silencia a receção para quem não tiver o mesmo tom configurado, reduzindo interferência de outros utilizadores no mesmo canal. Numeração T1–T38 corresponde à ordem usada nos menus da maioria dos rádios chineses (Baofeng, Quansheng, etc.).</p>
+      <div class="freq-grid" id="freq-ctcss-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;"></div>
+      <p style="font-size:.72rem;color:#ffcc00;margin-top:6px;">⭐ <b>77.0 Hz</b> é o tom usado pela grande maioria dos repetidores da Rede REP disponíveis neste simulador — configure este tom se for tentar aceder a um repetidor REP.</p>
+    </div>
+
+    <div class="howto-step">
+      <strong>⚠️ Nota</strong>
+      <p>Valores de referência standard PMR446/CTCSS — confirme sempre no manual do seu equipamento antes de operar. Fora da banda PMR446 (446 MHz, 0.5W, uso livre), operar rádios VHF/UHF (Baofeng, Quansheng, Motorola DP1400, etc.) pode exigir licença de radioamador.</p>
+    </div>
+
+    <button class="btn-calc" style="margin-top:14px;" onclick="closeFreqModal()">✅ Fechar</button>
   </div>
 </div>
 
@@ -394,7 +409,10 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
   <div id="sidebar">
     <div class="sidebar-close-btn" onclick="closeSidebar()" aria-label="Fechar menu">&times;</div>
     <h2>Simulador Rádio PMR/VHF/UHF</h2>
-    <button class="btn-howto" onclick="openHowTo()">📖 Como Funciona</button>
+    <div class="btn-row">
+      <button class="btn-howto" onclick="openHowTo()">📖 Como Funciona</button>
+      <button class="btn-howto" onclick="openFreqModal()">📻 Frequências</button>
+    </div>
 
     <div class="control-group">
       <h3>Modo & Visualização</h3>
@@ -411,14 +429,14 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
         <option value="topo">Topográfico / Relevo (OpenTopo)</option>
       </select>
       <label class="checkbox-container" style="margin-top:2px;">
-        <input type="checkbox" id="show-repeaters" onchange="toggleRepeaters()">
-        <span>Mostrar repetidores de referência (estáticos)</span>
+        <input type="checkbox" id="show-repeaters" onchange="toggleREPLayer()">
+        <span>📡 Repetidores REP (25 estações)</span>
       </label>
-    </div>
-
-    <!-- INFRAESTRUTURA CRÍTICA — abre overlay dedicado -->
-    <div class="control-group">
-      <button class="utility-trigger-btn" onclick="openUtilityOverlay()">🏗 Utilidades Críticas</button>
+      <label class="checkbox-container" style="margin-top:2px;">
+        <input type="checkbox" id="use-heatmap" onchange="triggerRecalculate()">
+        <span>🌡 Mapa de calor de sinal (gradiente)</span>
+      </label>
+      <button class="btn-neutral" onclick="openPrintPlan()" style="margin-top:6px;font-size:.72rem;">🖨 Plano de Comunicações (imprimir)</button>
     </div>
 
     <!-- LINK MODE PANELS -->
@@ -428,7 +446,7 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
         <div class="row-inputs" style="margin-bottom:2px;">
           <div style="flex:2"><label>Nome / Callsign:</label><input type="text" id="radioA-name" value="Alpha" maxlength="20" oninput="updateMarkerPopup('A')"></div>
           <div style="flex:1"><label>Cor:</label>
-            <select id="radioA-color" onchange="updateMarkerPopup('A')">
+            <select id="radioA-color" onchange="updateMarkerPopup('A'); triggerRecalculate();">
               <option value="#4eff4e" selected>Verde</option>
               <option value="#ffcc00">Amarelo</option>
               <option value="#00c3ff">Azul</option>
@@ -448,8 +466,8 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
           <option value="custom">Personalizado...</option>
         </select>
         <div class="row-inputs">
-          <div><label>Potência TX (W):</label><input type="number" id="radioA-power" value="0.5" step="0.1" min="0.1" oninput="triggerRecalculate()"></div>
-          <div><label>Altura Antena (m):</label><input type="number" id="radioA-offset" value="0" min="0" oninput="triggerRecalculate()"></div>
+          <div><label>Potência TX (W):</label><input type="number" id="radioA-power" value="0.5" step="0.1" min="0.1" oninput="triggerRecalculateDebounced()"></div>
+          <div><label>Altura Antena (m):</label><input type="number" id="radioA-offset" value="0" min="0" oninput="refreshAltitudeBadges();triggerRecalculateDebounced()"></div>
         </div>
         <div id="altitudeA" class="altitude-badge">Altitude: -- m</div>
       </div>
@@ -458,7 +476,7 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
         <div class="row-inputs" style="margin-bottom:2px;">
           <div style="flex:2"><label>Nome / Callsign:</label><input type="text" id="radioB-name" value="Bravo" maxlength="20" oninput="updateMarkerPopup('B')"></div>
           <div style="flex:1"><label>Cor:</label>
-            <select id="radioB-color" onchange="updateMarkerPopup('B')">
+            <select id="radioB-color" onchange="updateMarkerPopup('B'); triggerRecalculate();">
               <option value="#00c3ff" selected>Azul</option>
               <option value="#4eff4e">Verde</option>
               <option value="#ffcc00">Amarelo</option>
@@ -478,8 +496,8 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
           <option value="custom">Personalizado...</option>
         </select>
         <div class="row-inputs">
-          <div><label>Potência TX (W):</label><input type="number" id="radioB-power" value="0.5" step="0.1" min="0.1" oninput="triggerRecalculate()"></div>
-          <div><label>Altura Antena (m):</label><input type="number" id="radioB-offset" value="0" min="0" oninput="triggerRecalculate()"></div>
+          <div><label>Potência TX (W):</label><input type="number" id="radioB-power" value="0.5" step="0.1" min="0.1" oninput="triggerRecalculateDebounced()"></div>
+          <div><label>Altura Antena (m):</label><input type="number" id="radioB-offset" value="0" min="0" oninput="refreshAltitudeBadges();triggerRecalculateDebounced()"></div>
         </div>
         <div id="altitudeB" class="altitude-badge">Altitude: -- m</div>
       </div>
@@ -511,6 +529,14 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
           <span style="color:#2d9a1b">█</span> Floresta: −10dB/km &nbsp;
           <span style="color:#6da83a">█</span> Mato: −4dB/km &nbsp;
           <span style="color:#8aba4a">█</span> Pomar: −2dB/km
+        </div>
+        <label class="checkbox-container" style="margin-top:6px;">
+          <input type="checkbox" id="use-buildings" onchange="document.getElementById('bldg-note').style.display=this.checked?'block':'none';triggerRecalculate()">
+          <span>🏢 Edifícios como obstáculos (OSM)</span>
+        </label>
+        <div id="bldg-status" style="display:none;font-size:.7rem;padding:3px 5px;border-radius:3px;margin-top:2px;"></div>
+        <div id="bldg-note" style="display:none;font-size:.66rem;color:#7d9474;margin-top:2px;line-height:1.4;">
+          Só edifícios com altura/nº de pisos no OSM. A altura é somada ao relevo — bloqueia/difracta como o terreno.
         </div>
       </div>
       <button class="btn-calc" onclick="triggerRecalculate()">Processar Análise <span id="loader" style="display:none;" class="loader-dot"></span></button>
@@ -590,6 +616,11 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
           <span>🌲 Atenuação por vegetação (OSM)</span>
         </label>
         <div id="net-veg-status" style="display:none;font-size:.7rem;padding:3px 5px;border-radius:3px;margin-top:2px;"></div>
+        <label class="checkbox-container" style="margin-top:5px;">
+          <input type="checkbox" id="net-use-buildings">
+          <span>🏢 Edifícios como obstáculos (OSM)</span>
+        </label>
+        <div id="net-bldg-status" style="display:none;font-size:.7rem;padding:3px 5px;border-radius:3px;margin-top:2px;"></div>
       </div>
 
     </div><!-- /network-panel -->
@@ -618,7 +649,10 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
     </div>
 
   </div>
-  <div id="map"></div>
+  <div id="map">
+    <button id="measure-btn" onclick="toggleMeasureMode()" title="Medir distância e rumo entre dois pontos">📏 Medir</button>
+    <div id="measure-readout"></div>
+  </div>
 </div>
 
 <div class="bottom-section">
@@ -639,20 +673,34 @@ footer { background:#0a0d09; color:#6b7d67; text-align:center; padding:3px; font
   </div>
 </div>
 
-<footer>Simulador PMR/VHF/UHF — modelo aproximado para fins informativos. Não substitui estudo de propagação profissional.</footer>
+<footer>Simulador PMR/VHF/UHF — modelo aproximado para fins informativos. Não substitui estudo de propagação profissional. · Versão: 2026-07-03 07:22</footer>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 <script>
+// ══════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════
+// Escapa texto vindo do utilizador/ficheiros importados antes de o inserir em innerHTML/bindPopup,
+// para que nomes de rádio/nó não possam injectar HTML/JS (ex: cenários JSON partilhados por terceiros).
+function escapeHTML(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+}
+
 // ══════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════
 let map, baseTileLayer;
 let markerA = null, markerB = null;
 let polylineLink = null, obstacleMarker = null;
-let circleA = null, circleB = null, scanPolygon = null;
+let coverageA = null, coverageB = null, scanPolygon = null; // polígonos reais de cobertura (relevo+vegetação), não círculos
 let altA = 0, altB = 0, nameA = "Ponto A", nameB = "Ponto B";
+let altKnownA = false, altKnownB = false;       // true = altitude real obtida; false = ainda por medir
+let altEstimatedA = false, altEstimatedB = false; // true = valor é estimativa (APIs indisponíveis), não DEM real
 let currentCalculatedData = null;
-let repeaterLayer = null;
+let repLayer = null;
+let measureMode = false, measurePoints = [], measureLayer = null;  // ferramenta de medição
 let busy = false;
 
 // Network mode state
@@ -675,12 +723,15 @@ let vegetationPolygons = [];  // cached polygon list
 let vegCacheBbox = null;      // bbox that was last fetched
 let vegMapLayer  = null;      // leaflet layer for overlay
 
-const referenceRepeaters = [
-    { indicativo:"CR5REN", localizacao:"Serra da Estrela", freq:"145.600 MHz", tipo:"VHF", lat:40.3218, lng:-7.6129, cor:"cyan" },
-    { indicativo:"CR5RLB", localizacao:"Monsanto (Lisboa)", freq:"438.800 MHz", tipo:"UHF", lat:38.7394, lng:-9.1842, cor:"magenta" },
-    { indicativo:"CR5RMA", localizacao:"Serra do Marão", freq:"145.750 MHz", tipo:"VHF", lat:41.2655, lng:-7.9012, cor:"cyan" },
-    { indicativo:"CR5RFR", localizacao:"Serra de Monchique", freq:"145.600 MHz", tipo:"VHF", lat:37.3193, lng:-8.5584, cor:"cyan" }
-];
+// ── Edifícios (obstáculos) ────────────────────────────────────────────────
+// Modelo de obstáculo: a altura do edifício é SOMADA ao relevo no perfil, pelo
+// que participa na LOS + Fresnel + difracção knife-edge tal como uma colina.
+// Só se usam edifícios com altura conhecida (height) ou nº de pisos (building:levels).
+const BLDG_LEVEL_M = 3.0;     // metros por piso quando só há building:levels
+const BLDG_COLOR   = '#c86b3a';
+let buildingPolygons = [];    // [{points, heightM, bbox}]
+let buildingCacheBbox = null;
+let buildingMapLayer = null;
 
 // ── Rede REP — Repetidores de Radioamador Portugueses ─────────────────────
 // Dados aproximados de fontes públicas (REP/ARAM). Verificar com as associações.
@@ -750,22 +801,34 @@ let wxSelectedDay   = null;  // null=manual, -1=current, 0-6=forecast day
 let wxActiveFactor  = 1.0;   // active propagation factor
 let wxForecastFactors = [];  // factor per forecast day
 
-// ── Infrastructure state ──────────────────────────────────────────────────
-const INFRA_CFG = {
-    health:{ label:'Saúde',      color:'#ff6b6b', emoji:'🏥',
-             tags:'["amenity"~"hospital|clinic|health_centre|doctors"]' },
-    fire:  { label:'Bombeiros',  color:'#ff4500', emoji:'🚒',
-             tags:'["amenity"="fire_station"]' },
-    police:{ label:'GNR/PSP',   color:'#4169e1', emoji:'👮',
-             tags:'["amenity"="police"]' },
-    fuel:  { label:'Combustível',color:'#ffd700', emoji:'⛽',
-             tags:'["amenity"="fuel"]' },
-    water: { label:'Barragens',  color:'#00bfff', emoji:'💧',
-             tags:'["waterway"~"dam|weir"]["man_made"!="bridge"]' },
-};
-const infraLayers = {};
-const infraCache  = { health:[], fire:[], police:[], fuel:[], water:[] };
-let   infraLoaded = false;
+// O servidor público overpass-api.de fica frequentemente sobrecarregado (504) sob procura elevada.
+// Mantemos uma lista de mirrors e tentamos sequencialmente antes de desistir — usado tanto pela
+// vegetação (link/scanner) como pela infraestrutura crítica.
+const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+];
+
+async function fetchOverpass(query, timeoutMs=12000) {
+    const body = 'data='+encodeURIComponent(query);
+    let lastErr = null;
+    for (const url of OVERPASS_ENDPOINTS) {
+        try {
+            const res = await _fetchTimeout(url, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body
+            }, timeoutMs);
+            if (!res.ok) throw new Error('HTTP '+res.status);
+            return await res.json();
+        } catch(e) {
+            lastErr = e;
+            console.warn('[Overpass] Servidor falhou:', url, e);
+        }
+    }
+    throw lastErr || new Error('Todos os servidores Overpass falharam');
+}
 
 const powerMap = {
     'pmr-standard':0.5,'baofeng-uv5r':5.0,'baofeng-uv9r':8.0,
@@ -785,23 +848,24 @@ const mapStyles = {
 window.onload = function() {
     map = L.map('map').setView([39.5,-8.0],7);
     baseTileLayer = L.tileLayer(mapStyles.dark,{maxZoom:17}).addTo(map);
-    repeaterLayer = L.layerGroup();
     setTimeout(()=>map.invalidateSize(),200);
     updatePower('A'); updatePower('B'); updateNetNodePower();
     loadScenarioList();
 
     map.on('click', function(e) {
+        // A ferramenta de medição intercepta os cliques (não coloca rádios/nós).
+        if (measureMode) { handleMeasureClick(e.latlng); return; }
         const mode = document.getElementById('analysis-mode').value;
         if (mode === 'network') {
             if (isPlacingNode) { placeNetworkNode(e.latlng); }
             return;
         }
         if (!markerA) {
-            markerA = L.marker(e.latlng,{draggable:true}).addTo(map);
+            markerA = L.marker(e.latlng,{draggable:true,icon:buildRadioIcon(getRadioColor('A'),'A')}).addTo(map);
             getAltitude(e.latlng.lat,e.latlng.lng,'A');
             markerA.on('dragend',ev=>getAltitude(ev.target.getLatLng().lat,ev.target.getLatLng().lng,'A'));
         } else if (!markerB && mode==='link') {
-            markerB = L.marker(e.latlng,{draggable:true}).addTo(map);
+            markerB = L.marker(e.latlng,{draggable:true,icon:buildRadioIcon(getRadioColor('B'),'B')}).addTo(map);
             getAltitude(e.latlng.lat,e.latlng.lng,'B');
             markerB.on('dragend',ev=>getAltitude(ev.target.getLatLng().lat,ev.target.getLatLng().lng,'B'));
         } else if (mode==='link') {
@@ -813,17 +877,68 @@ window.onload = function() {
 };
 
 // ══════════════════════════════════════════════════════
+//  ESTADO "A CALCULAR" — feedback visível durante enlace/scanner/rede
+// ══════════════════════════════════════════════════════
+// Sem isto, colocar os pinos parece "não responder" enquanto os pedidos de
+// elevação/vegetação (vários segundos) decorrem em segundo plano.
+function showCalcBanner(msg) {
+    const el = document.getElementById('calc-banner');
+    if (!el) return;
+    el.innerHTML = `${msg} <span class="loader-dot"></span>`;
+    el.style.display = 'block';
+}
+function hideCalcBanner() {
+    const el = document.getElementById('calc-banner');
+    if (el) el.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════
 //  MODAL
 // ══════════════════════════════════════════════════════
 function openHowTo() { document.getElementById('howtoModal').style.display='block'; }
 function closeHowTo() { document.getElementById('howtoModal').style.display='none'; }
+
+// ── Referência de frequências PMR446 / CTCSS ──────────────────────────────
+const PMR446_CHANNELS = [
+    {ch:1,freq:446.00625},{ch:2,freq:446.01875},{ch:3,freq:446.03125},{ch:4,freq:446.04375},
+    {ch:5,freq:446.05625},{ch:6,freq:446.06875},{ch:7,freq:446.08125},{ch:8,freq:446.09375},
+    {ch:9,freq:446.10625},{ch:10,freq:446.11875},{ch:11,freq:446.13125},{ch:12,freq:446.14375},
+    {ch:13,freq:446.15625},{ch:14,freq:446.16875},{ch:15,freq:446.18125},{ch:16,freq:446.19375}
+];
+const CTCSS_TONES = [
+    67.0,71.9,74.4,77.0,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100.0,103.5,107.2,110.9,114.8,
+    118.8,123.0,127.3,131.8,136.5,141.3,146.2,151.4,156.7,159.8,162.2,165.5,167.9,171.3,173.8,177.3,
+    179.9,183.5,186.2,189.9,192.8,196.6
+];
+
+function renderFreqReference() {
+    const pmrGrid = document.getElementById('freq-pmr-grid');
+    if (pmrGrid && !pmrGrid.dataset.built) {
+        pmrGrid.innerHTML = PMR446_CHANNELS.map(c=>
+            `<div>CH ${String(c.ch).padStart(2,'0')} — ${c.freq.toFixed(5)} MHz</div>`
+        ).join('');
+        pmrGrid.dataset.built = '1';
+    }
+    const ctcssGrid = document.getElementById('freq-ctcss-grid');
+    if (ctcssGrid && !ctcssGrid.dataset.built) {
+        ctcssGrid.innerHTML = CTCSS_TONES.map((hz,i)=>{
+            const isRep = hz===77.0;
+            return `<div${isRep?' class="freq-highlight"':''}>T${i+1} — ${hz.toFixed(1)} Hz${isRep?' ⭐':''}</div>`;
+        }).join('');
+        ctcssGrid.dataset.built = '1';
+    }
+}
+
+function openFreqModal() { renderFreqReference(); document.getElementById('freqModal').style.display='block'; }
+function closeFreqModal() { document.getElementById('freqModal').style.display='none'; }
+
 window.onclick = e => {
     if(e.target===document.getElementById('howtoModal')) closeHowTo();
-    if(e.target===document.getElementById('utilityModal')) closeUtilityOverlay();
+    if(e.target===document.getElementById('freqModal')) closeFreqModal();
 };
 
 // ══════════════════════════════════════════════════════
-//  MOBILE SIDEBAR DRAWER + UTILITIES OVERLAY
+//  MOBILE SIDEBAR DRAWER
 // ══════════════════════════════════════════════════════
 function openSidebar() {
     document.getElementById('sidebar').classList.add('open');
@@ -836,11 +951,9 @@ function closeSidebar() {
 function toggleSidebar() {
     document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
 }
-function openUtilityOverlay() { document.getElementById('utilityModal').style.display='block'; }
-function closeUtilityOverlay() { document.getElementById('utilityModal').style.display='none'; }
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    closeHowTo(); closeUtilityOverlay(); closeSidebar();
+    closeHowTo(); closeFreqModal(); closeSidebar();
 });
 
 // ══════════════════════════════════════════════════════
@@ -868,26 +981,23 @@ function changeAnalysisMode() {
         ? 'Relatório de Enlace Detalhado'
         : isScanner ? 'Consola de Cobertura 360º' : 'Consola de Diagnóstico';
 
-    // Clear non-network map layers
-    clearLinkLayers();
+    // Mudar de modo remove sempre todos os pinos do mapa (Enlace A/B + nós de Rede),
+    // para não ficarem marcadores de outro modo a poluir o mapa. Isto NÃO se aplica a
+    // mudar apenas o estilo do mapa — ver changeMapStyle(), que nunca toca nos pinos.
+    clearAllMapPins();
 
-    if (isNet) {
-        // Remove A/B markers from map
-        if (markerA) { map.removeLayer(markerA); markerA=null; }
-        if (markerB) { map.removeLayer(markerB); markerB=null; }
-        renderNodeListUI();
-    } else {
-        // Remove network layers
-        clearNetworkLayers();
-        cancelPlacement();
-    }
+    // O Scanner 360º não calcula um enlace A↔B — o painel de perfil de relevo/LOS
+    // não se aplica neste modo, por isso mantém-se sempre vazio.
+    if (isScanner) clearProfileChart();
+
+    document.getElementById('log-output').innerText = 'Modo alterado — coloque os pinos/nós no mapa para começar.';
 }
 
 function clearLinkLayers() {
     if (polylineLink) { map.removeLayer(polylineLink); polylineLink=null; }
     if (obstacleMarker) { map.removeLayer(obstacleMarker); obstacleMarker=null; }
-    if (circleA) { map.removeLayer(circleA); circleA=null; }
-    if (circleB) { map.removeLayer(circleB); circleB=null; }
+    if (coverageA) { map.removeLayer(coverageA); coverageA=null; }
+    if (coverageB) { map.removeLayer(coverageB); coverageB=null; }
     if (scanPolygon) { map.removeLayer(scanPolygon); scanPolygon=null; }
     // Vegetation overlay is kept across link/scanner (intentional — shows context)
 }
@@ -897,9 +1007,96 @@ function clearNetworkLayers() {
     networkLayers=[];
     if (vegMapLayer) { try{map.removeLayer(vegMapLayer);}catch(e){} vegMapLayer=null; }
     vegetationPolygons=[]; vegCacheBbox=null;
+    if (buildingMapLayer) { try{map.removeLayer(buildingMapLayer);}catch(e){} buildingMapLayer=null; }
+    buildingPolygons=[]; buildingCacheBbox=null;
+}
+
+// Remove TODOS os pinos do mapa — Rádio A/B do Enlace e todos os nós de Rede —
+// usado quando o utilizador muda o modo de utilização, para não deixar marcadores
+// "órfãos" de outro modo a poluir o mapa. NUNCA chamar a partir de changeMapStyle()
+// (mudar o estilo do mapa deve preservar os pinos).
+function clearAllMapPins() {
+    clearLinkLayers();
+    if (markerA) { map.removeLayer(markerA); markerA=null; }
+    if (markerB) { map.removeLayer(markerB); markerB=null; }
+    altA=0; altB=0; nameA="Ponto A"; nameB="Ponto B";
+    altKnownA=false; altKnownB=false; altEstimatedA=false; altEstimatedB=false;
+    refreshAltitudeBadges();
+    cancelPlacement();
+
+    networkNodes.forEach(n=>{ try{map.removeLayer(n.marker);}catch(e){} });
+    networkNodes=[];
+    clearNetworkLayers();
+    renderNodeListUI();
+    document.getElementById('matrix-container').innerHTML='<div style="color:#6b7d67;font-size:.75rem;padding:6px;">Analisar a rede para ver a matriz.</div>';
 }
 
 function changeMapStyle() { baseTileLayer.setUrl(mapStyles[document.getElementById('map-style').value]); }
+
+// ══════════════════════════════════════════════════════
+//  FERRAMENTA DE MEDIÇÃO (distância + rumo entre 2 pontos)
+// ══════════════════════════════════════════════════════
+function toggleMeasureMode() {
+    measureMode = !measureMode;
+    const btn = document.getElementById('measure-btn');
+    btn.classList.toggle('active', measureMode);
+    btn.innerText = measureMode ? '📏 Medir: ON (clique 2 pontos)' : '📏 Medir';
+    if (measureMode) {
+        map.getContainer().style.cursor = 'crosshair';
+        showMeasureReadout('Clique em <b>dois pontos</b> no mapa para medir distância e rumo.');
+    } else {
+        clearMeasure();
+    }
+}
+
+function clearMeasure() {
+    measurePoints = [];
+    if (measureLayer) { try{map.removeLayer(measureLayer);}catch(e){} measureLayer=null; }
+    map.getContainer().style.cursor = '';
+    const ro = document.getElementById('measure-readout');
+    if (ro) ro.style.display = 'none';
+}
+
+function showMeasureReadout(html) {
+    const ro = document.getElementById('measure-readout');
+    if (!ro) return;
+    ro.innerHTML = html;
+    ro.style.display = 'block';
+}
+
+function handleMeasureClick(latlng) {
+    // 3.º clique recomeça uma nova medição
+    if (measurePoints.length >= 2) {
+        if (measureLayer) { try{map.removeLayer(measureLayer);}catch(e){} measureLayer=null; }
+        measurePoints = [];
+    }
+    measurePoints.push(latlng);
+    if (measureLayer) { try{map.removeLayer(measureLayer);}catch(e){} }
+    measureLayer = L.layerGroup();
+    measurePoints.forEach((p,i)=>{
+        measureLayer.addLayer(L.circleMarker([p.lat,p.lng],{radius:5,color:'#ffd479',weight:2,fillColor:'#3d2f14',fillOpacity:.9}));
+    });
+
+    if (measurePoints.length === 1) {
+        showMeasureReadout('Ponto 1 marcado. Clique no <b>segundo ponto</b>.');
+    } else {
+        const [a,b] = measurePoints;
+        const distKm = getDistance(a.lat,a.lng,b.lat,b.lng);
+        const brng = bearingBetween(a, b);
+        const back = (brng+180)%360;
+        const distStr = distKm>=1 ? `${distKm.toFixed(2)} km` : `${Math.round(distKm*1000)} m`;
+        const line = L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#ffd479',weight:2.5,dashArray:'6,5'});
+        line.bindTooltip(`📏 ${distStr} · ${brng.toFixed(0)}°`, {permanent:true, direction:'center', className:'leaflet-tooltip'});
+        measureLayer.addLayer(line);
+        showMeasureReadout(
+            `📏 Distância: <b>${distStr}</b><br>`+
+            `🧭 Rumo A→B: <b>${brng.toFixed(1)}°</b><br>`+
+            `🧭 Rumo B→A: <b>${back.toFixed(1)}°</b><br>`+
+            `<span style="color:#7d9474;font-size:.9em">Clique novamente para medir outro par.</span>`
+        );
+    }
+    measureLayer.addTo(map);
+}
 
 // ══════════════════════════════════════════════════════
 //  POWER / ALTITUDE HELPERS
@@ -918,13 +1115,42 @@ function updateNetNodePower() {
 }
 
 async function getAltitude(lat, lng, target) {
-    await fetchLocationName(lat,lng,target);
-    const elevs = await batchElevation([{lat,lng}]);
-    if (target==='A') altA=Math.round(elevs[0]);
-    else altB=Math.round(elevs[0]);
-    refreshAltitudeBadges();
-    updateMarkerPopup(target);
+    // Feedback imediato ao colocar/arrastar o pino — evita o hiato "nada acontece".
+    showCalcBanner('⏳ A obter altitude e localização…');
+    // Permite repetir esta medição a partir do banner de elevação se falhar/estimar.
+    _lastElevRetry = () => getAltitude(lat, lng, target);
+    // Estado "a medir" no badge (nunca mostra NaN nem valor antigo enganador).
+    if (target==='A') altKnownA=false; else altKnownB=false;
+    _setAltBadgeLoading(target);
+    try {
+        // Localização (Nominatim) e elevação em PARALELO — o nome do local nunca
+        // atrasa a medição de altitude (nem a bloqueia se o Nominatim falhar/for lento).
+        const [, elevs] = await Promise.all([
+            fetchLocationName(lat,lng,target),
+            batchElevation([{lat,lng}])
+        ]);
+        const est = isElevEstimated(lat, lng);
+        const val = Number.isFinite(elevs[0]) ? Math.round(elevs[0]) : 0;
+        if (target==='A') { altA=val; altKnownA=true; altEstimatedA=est; }
+        else              { altB=val; altKnownB=true; altEstimatedB=est; }
+        refreshAltitudeBadges();
+        updateMarkerPopup(target);
+    } finally {
+        // Só esconde o banner de cálculo se não houver cobertura a seguir (que o reutiliza).
+        const mode = document.getElementById('analysis-mode').value;
+        const willRecalc = (mode==='scanner' && markerA) || (mode==='link' && markerA && markerB);
+        if (!willRecalc) hideCalcBanner();
+    }
     triggerRecalculate();
+}
+
+// Repete a medição de altitude de um ponto (tocar no badge quando falhou/estimou).
+function retryAltitude(target) {
+    const m = target==='A' ? markerA : markerB;
+    if (!m) return;
+    const ll = m.getLatLng();
+    _purgeEstimatedCache();   // força novo pedido em vez de reusar a estimativa cacheada
+    getAltitude(ll.lat, ll.lng, target);
 }
 
 function getModelLabel(modelVal) {
@@ -943,6 +1169,8 @@ function buildPopupHTML(target, lat, lng) {
     const color = isA ? (document.getElementById('radioA-color')||{value:'#4eff4e'}).value
                       : (document.getElementById('radioB-color')||{value:'#00c3ff'}).value;
     const alt = isA ? altA : altB;
+    const est = isA ? altEstimatedA : altEstimatedB;
+    const altStr = est ? `~${alt} m <span style="color:#ffcc00">(estimado)</span>` : `${alt} m`;
     const off = parseInt(document.getElementById(isA?'radioA-offset':'radioB-offset').value)||0;
     const power = parseFloat(document.getElementById(isA?'radioA-power':'radioB-power').value)||0;
     const model = getModelLabel(document.getElementById(isA?'radioA-model':'radioB-model').value);
@@ -951,14 +1179,14 @@ function buildPopupHTML(target, lat, lng) {
     return `
       <div style="font-family:'Segoe UI',sans-serif;min-width:200px;font-size:12px;line-height:1.5;">
         <div style="background:${color}22;border-left:3px solid ${color};padding:4px 7px;margin-bottom:6px;">
-          <b style="color:${color};font-size:13px;">📻 ${name} (Rádio ${target})</b><br>
+          <b style="color:${color};font-size:13px;">📻 ${escapeHTML(name)} (Rádio ${target})</b><br>
           <span style="color:#aaa;font-size:11px;">${model}</span>
         </div>
         <table style="width:100%;border-collapse:collapse;">
-          <tr><td style="color:#888;padding:1px 4px;">📍 Localização</td><td style="padding:1px 4px;font-size:11px;">${locName.split(',').slice(0,2).join(',')}</td></tr>
+          <tr><td style="color:#888;padding:1px 4px;">📍 Localização</td><td style="padding:1px 4px;font-size:11px;">${escapeHTML(locName.split(',').slice(0,2).join(','))}</td></tr>
           <tr><td style="color:#888;padding:1px 4px;">🌐 Latitude</td><td style="padding:1px 4px;font-family:monospace;">${lat.toFixed(6)}°</td></tr>
           <tr><td style="color:#888;padding:1px 4px;">🌐 Longitude</td><td style="padding:1px 4px;font-family:monospace;">${lng.toFixed(6)}°</td></tr>
-          <tr><td style="color:#888;padding:1px 4px;">⛰ Alt. Terreno</td><td style="padding:1px 4px;"><b>${alt} m</b></td></tr>
+          <tr><td style="color:#888;padding:1px 4px;">⛰ Alt. Terreno</td><td style="padding:1px 4px;"><b>${altStr}</b></td></tr>
           <tr><td style="color:#888;padding:1px 4px;">📡 Alt. Antena</td><td style="padding:1px 4px;">+${off} m (Total: <b>${effAlt} m</b>)</td></tr>
           <tr><td style="color:#888;padding:1px 4px;">⚡ Potência TX</td><td style="padding:1px 4px;"><b>${power} W</b></td></tr>
           <tr><td style="color:#888;padding:1px 4px;">↔ Função</td><td style="padding:1px 4px;">Emissor e Recetor</td></tr>
@@ -969,22 +1197,74 @@ function buildPopupHTML(target, lat, lng) {
       </div>`;
 }
 
+// Ícone do pino colorido de acordo com a cor escolhida no dropdown Rádio A/B.
+// Forma de "pin" de mapa (cabeça redonda + base estreita em bico) em vez de um círculo opaco,
+// para que o próprio pino não tape o círculo de cobertura à volta do ponto exacto.
+// A ponta do bico (não o centro da cabeça) é o ponto âncora — é aí que fica a coordenada real.
+function buildRadioIcon(color, label) {
+    const svg = `<svg width="26" height="36" viewBox="0 0 26 36" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.7));">
+        <path d="M2,12 A11,11 0 1 1 24,12 L13,34 Z" fill="${color}" stroke="#fff" stroke-width="2"/>
+        <text x="13" y="12" text-anchor="middle" dominant-baseline="central" font-family="'Segoe UI',sans-serif" font-size="12" font-weight="bold" fill="#fff">${label}</text>
+    </svg>`;
+    return L.divIcon({
+        className: '',
+        html: svg,
+        iconSize: [26,36],
+        iconAnchor: [13,34],
+        popupAnchor: [0,-32]
+    });
+}
+function getRadioColor(target) {
+    return (document.getElementById(`radio${target}-color`)||{value: target==='A'?'#4eff4e':'#00c3ff'}).value;
+}
+
 function updateMarkerPopup(target) {
     if (target==='A' && markerA) {
         const ll=markerA.getLatLng();
         markerA.bindPopup(buildPopupHTML('A',ll.lat,ll.lng),{maxWidth:260});
+        markerA.setIcon(buildRadioIcon(getRadioColor('A'),'A'));
     }
     if (target==='B' && markerB) {
         const ll=markerB.getLatLng();
         markerB.bindPopup(buildPopupHTML('B',ll.lat,ll.lng),{maxWidth:260});
+        markerB.setIcon(buildRadioIcon(getRadioColor('B'),'B'));
     }
 }
 
+function _setAltBadgeLoading(target) {
+    const el = document.getElementById('altitude'+target);
+    if (!el) return;
+    el.style.color = '';
+    el.style.cursor = 'default';
+    el.onclick = null;
+    el.innerText = '⛰ A obter altitude…';
+}
+
 function refreshAltitudeBadges() {
-    const offA=parseInt(document.getElementById('radioA-offset').value)||0;
-    const offB=parseInt(document.getElementById('radioB-offset').value)||0;
-    document.getElementById('altitudeA').innerText=`⛰ Terreno: ${altA}m  +  📡 Antena: ${offA}m  =  ${altA+offA}m efectivos`;
-    document.getElementById('altitudeB').innerText=`⛰ Terreno: ${altB}m  +  📡 Antena: ${offB}m  =  ${altB+offB}m efectivos`;
+    _renderAltBadge('A', altA, altKnownA, altEstimatedA);
+    _renderAltBadge('B', altB, altKnownB, altEstimatedB);
+}
+
+function _renderAltBadge(target, alt, known, estimated) {
+    const el = document.getElementById('altitude'+target);
+    if (!el) return;
+    const off = parseInt(document.getElementById('radio'+target+'-offset').value)||0;
+    if (!known) {
+        el.style.color = ''; el.style.cursor = 'default'; el.onclick = null;
+        el.innerText = 'Altitude: -- m';
+        return;
+    }
+    const eff = alt + off;
+    if (estimated) {
+        // Dado NÃO é DEM real — assinala com ~ e âmbar, e permite repetir a medição.
+        el.style.color = '#ffcc00'; el.style.cursor = 'pointer';
+        el.onclick = () => retryAltitude(target);
+        el.innerHTML = `⛰ Terreno: ~${alt}m <span style="font-style:normal">(estimado</span> `
+            + `<span style="text-decoration:underline">↻ repetir</span>)  +  📡 ${off}m  =  ~${eff}m`;
+    } else {
+        el.style.color = ''; el.style.cursor = 'default'; el.onclick = null;
+        el.innerText = `⛰ Terreno: ${alt}m  +  📡 Antena: ${off}m  =  ${eff}m efectivos`;
+    }
 }
 
 async function fetchLocationName(lat,lng,target) {
@@ -999,18 +1279,43 @@ async function fetchLocationName(lat,lng,target) {
 }
 
 // ══════════════════════════════════════════════════════
-//  ELEVATION API
+//  ELEVATION API — cascata robusta
 // ══════════════════════════════════════════════════════
-// ── Elevation API cascade ─────────────────────────────
-// Ordem: Open-Meteo (primária) → OpenTopoData (secundária)
-//        → Open-Elevation (terciária) → estimativa determinística
+// Ordem: Open-Meteo (primária, 1 retry) → OpenTopoData (secundária)
+//        → Open-Elevation (terciária) → estimativa determinística por ponto.
+// Princípios de robustez:
+//  • Coordenadas são validadas/limitadas antes de sair (nunca se envia NaN).
+//  • Cada valor devolvido é saneado para número finito; null/NaN = "em falta"
+//    e é preenchido por estimativa APENAS nesse ponto (não falha o lote todo).
+//  • Valores não-finitos nunca são cacheados.
+//  • Um único ponto/erro/blip não faz cair todo o lote pelos 3 timeouts.
 
-const _elevCache = new Map(); // cache por chave arredondada
+const _elevCache = new Map();          // chave arredondada -> elevação (número finito)
+const _elevEstimatedKeys = new Set();  // chaves cujo valor é estimativa, não DEM real
 
-function _elevKey(c) {
-    // arredonda a 4 casas (±11m) para reutilizar resultados de drags pequenos
-    return `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`;
+function _elevKey(c) { return `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`; }
+
+// Coerção segura para número finito (aceita strings numéricas); senão null.
+function _finite(v) {
+    const n = typeof v === 'number' ? v : parseFloat(v);
+    return Number.isFinite(n) ? n : null;
 }
+
+// Valida e limita uma coordenada; devolve {lat,lng} saneado ou null se inválida.
+function _sanitizeCoord(c) {
+    if (!c) return null;
+    const lat = _finite(c.lat), lng = _finite(c.lng);
+    if (lat === null || lng === null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return { lat, lng };
+}
+
+// Estimativa determinística de terreno (pseudo-relevo) — usada só quando não há dados reais.
+function _estimateElev(c) {
+    return Math.round(80 + 60 * Math.abs((Math.sin(c.lat * 12.9898 + c.lng * 78.233) * 43758.5453) % 1));
+}
+
+function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function _fetchTimeout(url, opts, ms) {
     const ctrl = new AbortController();
@@ -1019,125 +1324,200 @@ function _fetchTimeout(url, opts, ms) {
            .finally(() => clearTimeout(tid));
 }
 
-function _elevBanner(msg, style) {
-    // style: 'ok' | 'warn' | 'error' | 'hidden'
-    const el = document.getElementById('fallback-banner');
-    if (!el) return;
-    if (style === 'hidden') { el.style.display = 'none'; return; }
-    const cfg = {
-        ok:    { bg:'#1a3d1a', border:'#2d6b2d' },
-        warn:  { bg:'#3d3400', border:'#7a6a00' },
-        error: { bg:'#6b2a00', border:'#a04000' }
-    }[style] || { bg:'#333', border:'#555' };
-    el.style.display     = 'block';
-    el.style.background  = cfg.bg;
-    el.style.borderColor = cfg.border;
-    el.innerText = msg;
+// ── Banner de estado da elevação ──────────────────────────────────────────
+// 'ok' desaparece sozinho após 2s; 'warn'/'error' ficam visíveis com acção "repetir".
+let _elevBannerTimer = null;
+let _lastElevRetry = null;   // função que re-executa a última acção que consumiu elevação
+// Remove do cache os pontos que ficaram como estimativa, para que uma nova tentativa
+// force um pedido fresco às APIs em vez de devolver a mesma estimativa cacheada.
+function _purgeEstimatedCache() {
+    _elevEstimatedKeys.forEach(k => _elevCache.delete(k));
+    _elevEstimatedKeys.clear();
+}
+function retryLastElevation() {
+    _purgeEstimatedCache();
+    if (typeof _lastElevRetry === 'function') _lastElevRetry();
 }
 
-// Divide array em blocos de n elementos
+function setElevSource(level, label) {
+    const el = document.getElementById('fallback-banner');
+    if (!el) return;
+    clearTimeout(_elevBannerTimer);
+    if (level === 'hidden') { el.style.display = 'none'; return; }
+    const cfg = {
+        ok:    { bg:'#1a3d1a', border:'#2d6b2d', icon:'✅' },
+        warn:  { bg:'#3d3400', border:'#7a6a00', icon:'⚠️' },
+        error: { bg:'#6b2a00', border:'#a04000', icon:'❌' }
+    }[level] || { bg:'#333', border:'#555', icon:'' };
+    el.style.background = cfg.bg;
+    el.style.borderColor = cfg.border;
+    el.style.display = 'block';
+    const retry = level !== 'ok'
+        ? ` &nbsp;<span style="text-decoration:underline;cursor:pointer;" onclick="retryLastElevation()">↻ repetir</span>`
+        : '';
+    el.innerHTML = `${cfg.icon} Elevação: ${escapeHTML(label)}${retry}`;
+    if (level === 'ok') _elevBannerTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
+}
+
+// gravidade relativa para escolher o "pior" estado num lote com vários blocos
+const _ELEV_SEVERITY = { ok:0, warn:1, error:2 };
+
 function _chunk(arr, n) {
     const out = [];
     for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
     return out;
 }
 
+// Concorrência limitada, preservando ordem dos resultados.
+async function _mapLimit(items, limit, fn) {
+    const results = new Array(items.length);
+    let idx = 0;
+    async function worker() {
+        while (idx < items.length) {
+            const cur = idx++;
+            results[cur] = await fn(items[cur], cur);
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return results;
+}
+
+// Preenche pontos em falta (null) com estimativa e marca-os; devolve {vals, estFlags}.
+function _fillMissing(coords, rawVals) {
+    const estFlags = rawVals.map(v => _finite(v) === null);
+    const vals = rawVals.map((v, i) => {
+        const f = _finite(v);
+        return f !== null ? f : _estimateElev(coords[i]);
+    });
+    return { vals, estFlags };
+}
+
+// Providers — cada um devolve um array (número|null) do mesmo tamanho que coords, ou atira.
+async function _provOpenMeteo(coords, timeout) {
+    const lats = coords.map(c => c.lat.toFixed(5)).join(',');
+    const lngs = coords.map(c => c.lng.toFixed(5)).join(',');
+    const res = await _fetchTimeout(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`, {}, timeout);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (d && d.error) throw new Error(d.reason || 'API error');
+    if (!Array.isArray(d.elevation) || d.elevation.length !== coords.length) throw new Error('resposta inesperada');
+    return d.elevation.map(_finite);
+}
+async function _provOpenTopo(coords, timeout) {
+    const locs = coords.map(c => `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`).join('|');
+    const res = await _fetchTimeout(`https://api.opentopodata.org/v1/srtm30m?locations=${encodeURIComponent(locs)}`, {}, timeout);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (!Array.isArray(d.results) || d.results.length !== coords.length) throw new Error('resposta inesperada');
+    return d.results.map(r => _finite(r && r.elevation));
+}
+async function _provOpenElev(coords, timeout) {
+    const res = await _fetchTimeout('https://api.open-elevation.com/api/v1/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations: coords.map(c => ({ latitude: c.lat, longitude: c.lng })) })
+    }, timeout);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (!Array.isArray(d.results) || d.results.length !== coords.length) throw new Error('resposta inesperada');
+    return d.results.map(r => _finite(r && r.elevation));
+}
+
+// Um lote de coords (já saneadas) → {vals, estFlags, source:{level,label}}.
 async function _elevSingleBatch(coords) {
-    // ── 1. Open-Meteo (GET, SRTM 90m, sem chave, muito fiável) ──────────
-    try {
-        const lats = coords.map(c => c.lat.toFixed(5)).join(',');
-        const lngs = coords.map(c => c.lng.toFixed(5)).join(',');
-        const res  = await _fetchTimeout(
-            `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`,
-            {}, 7000
-        );
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const d = await res.json();
-        if (Array.isArray(d.elevation) && d.elevation.length === coords.length) {
-            _elevBanner('✅ Elevação: Open-Meteo (SRTM 90m)', 'ok');
-            return d.elevation;
+    // 1. Open-Meteo — primária, com 1 retry rápido (cobre blips transitórios de rede,
+    //    a causa nº1 de falha intermitente em APIs gratuitas).
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const raw = await _provOpenMeteo(coords, 6000);
+            if (raw.some(v => v !== null)) {
+                return { ..._fillMissing(coords, raw), source: { level:'ok', label:'Open-Meteo (SRTM 90m)' } };
+            }
+            throw new Error('todos os pontos sem dados');
+        } catch (e) {
+            console.info(`[Elev] Open-Meteo tentativa ${attempt + 1}:`, e.message);
+            if (attempt === 0) await _sleep(400);
         }
-        throw new Error('resposta inesperada');
-    } catch (e) { console.info('[Elev] Open-Meteo:', e.message); }
-
-    // ── 2. OpenTopoData SRTM30m (GET, sem chave, resolução 30m) ──────────
+    }
+    // 2. OpenTopoData SRTM30m — secundária (30m).
     try {
-        _elevBanner('🔄 Open-Meteo indisponível — a tentar OpenTopoData SRTM30m…', 'warn');
-        const locs = coords.map(c => `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`).join('|');
-        const res  = await _fetchTimeout(
-            `https://api.opentopodata.org/v1/srtm30m?locations=${encodeURIComponent(locs)}`,
-            {}, 10000
-        );
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const d = await res.json();
-        if (Array.isArray(d.results) && d.results.length === coords.length) {
-            _elevBanner('⚠️ Elevação: OpenTopoData SRTM30m — resolução 30m (API secundária)', 'warn');
-            return d.results.map(r => r.elevation ?? 0);
+        const raw = await _provOpenTopo(coords, 8000);
+        if (raw.some(v => v !== null)) {
+            return { ..._fillMissing(coords, raw), source: { level:'warn', label:'OpenTopoData SRTM30m (secundária, 30m)' } };
         }
-        throw new Error('resposta inesperada');
-    } catch (e) { console.info('[Elev] OpenTopoData SRTM30m:', e.message); }
-
-    // ── 3. Open-Elevation (POST, sem chave, instável) ───────────────────
+    } catch (e) { console.info('[Elev] OpenTopoData:', e.message); }
+    // 3. Open-Elevation — terciária (instável).
     try {
-        _elevBanner('🔄 A tentar Open-Elevation (API terciária)…', 'warn');
-        const res = await _fetchTimeout(
-            'https://api.open-elevation.com/api/v1/lookup',
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ locations: coords.map(c => ({ latitude: c.lat, longitude: c.lng })) })
-            },
-            14000
-        );
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const d = await res.json();
-        if (Array.isArray(d.results) && d.results.length === coords.length) {
-            _elevBanner('⚠️ Elevação: Open-Elevation (API terciária)', 'warn');
-            return d.results.map(r => r.elevation);
+        const raw = await _provOpenElev(coords, 10000);
+        if (raw.some(v => v !== null)) {
+            return { ..._fillMissing(coords, raw), source: { level:'warn', label:'Open-Elevation (terciária)' } };
         }
-        throw new Error('resposta inesperada');
     } catch (e) { console.info('[Elev] Open-Elevation:', e.message); }
-
-    // ── 4. Estimativa determinística (fallback final) ────────────────────
-    _elevBanner('❌ Todas as APIs de elevação indisponíveis — a usar estimativa aproximada de terreno.', 'error');
-    return coords.map(c => 80 + 60 * Math.abs(Math.sin(c.lat * 12.9898 + c.lng * 78.233) * 43758.5453 % 1));
+    // 4. Estimativa determinística — último recurso (todos os pontos estimados).
+    return {
+        vals: coords.map(_estimateElev),
+        estFlags: coords.map(() => true),
+        source: { level:'error', label:'estimativa aproximada (APIs indisponíveis)' }
+    };
 }
 
 async function batchElevation(coordsArray) {
-    if (!coordsArray.length) return [];
+    if (!coordsArray || !coordsArray.length) return [];
 
-    // Verificar cache
-    const keys     = coordsArray.map(_elevKey);
-    const missing  = [];
-    const missIdx  = [];
-    keys.forEach((k, i) => { if (!_elevCache.has(k)) { missing.push(coordsArray[i]); missIdx.push(i); } });
+    // Saneia entrada; guarda a coord válida (ou null) e a respectiva chave.
+    const sane = coordsArray.map(_sanitizeCoord);
+    const keys = sane.map(c => c ? _elevKey(c) : null);
 
-    if (missing.length) {
-        // Blocos de 100 em PARALELO (Open-Meteo suporta; muito mais rápido para scanners grandes)
-        const blocks  = _chunk(missing, 100);
-        const results = await Promise.all(blocks.map(blk => _elevSingleBatch(blk)));
-        const fetched = results.flat();
-        missIdx.forEach((origIdx, fi) => {
-            _elevCache.set(keys[origIdx], fetched[fi]);
-            if (_elevCache.size > 2000) _elevCache.delete(_elevCache.keys().next().value);
+    // Recolhe apenas chaves únicas ainda não cacheadas (dedup — evita pedir o mesmo
+    // ponto várias vezes quando amostras colapsam na mesma chave arredondada).
+    const need = new Map(); // key -> coord
+    keys.forEach((k, i) => { if (k && !_elevCache.has(k) && !need.has(k)) need.set(k, sane[i]); });
+
+    if (need.size) {
+        const uniqKeys   = [...need.keys()];
+        const uniqCoords = [...need.values()];
+        const blocks = _chunk(uniqCoords, 100);
+        const results = await _mapLimit(blocks, 6, blk => _elevSingleBatch(blk));
+
+        // Achata mantendo ordem e determina o pior estado do conjunto para o banner.
+        const flatVals = [], flatEst = [];
+        let worst = { level:'ok', label:'Open-Meteo (SRTM 90m)' };
+        results.forEach(r => {
+            r.vals.forEach(v => flatVals.push(v));
+            r.estFlags.forEach(e => flatEst.push(e));
+            if (_ELEV_SEVERITY[r.source.level] > _ELEV_SEVERITY[worst.level]) worst = r.source;
+        });
+        setElevSource(worst.level, worst.label);
+
+        uniqKeys.forEach((k, i) => {
+            const v = _finite(flatVals[i]);
+            if (v === null) return;                 // nunca cachear não-finito
+            _elevCache.set(k, v);
+            if (flatEst[i]) _elevEstimatedKeys.add(k); else _elevEstimatedKeys.delete(k);
+            if (_elevCache.size > 2000) {
+                const old = _elevCache.keys().next().value;
+                _elevCache.delete(old); _elevEstimatedKeys.delete(old);
+            }
         });
     }
 
-    return keys.map(k => _elevCache.get(k) ?? 100);
+    // Devolve sempre números finitos. Coord inválida → 0; sem dados → estimativa desse ponto.
+    return sane.map((c, i) => {
+        const k = keys[i];
+        if (k && _elevCache.has(k)) return _elevCache.get(k);
+        return c ? _estimateElev(c) : 0;
+    });
+}
+
+// true se a elevação cacheada para esta coord é uma estimativa (não DEM real)
+function isElevEstimated(lat, lng) {
+    const c = _sanitizeCoord({ lat, lng });
+    return c ? _elevEstimatedKeys.has(_elevKey(c)) : true;
 }
 
 // ══════════════════════════════════════════════════════
 //  VEGETATION — FETCH / PARSE / GEOMETRY / ATTENUATION
 // ══════════════════════════════════════════════════════
-
-function pathBbox(posA, posB, padDeg=0.03) {
-    return {
-        s: Math.min(posA.lat, posB.lat) - padDeg,
-        w: Math.min(posA.lng, posB.lng) - padDeg,
-        n: Math.max(posA.lat, posB.lat) + padDeg,
-        e: Math.max(posA.lng, posB.lng) + padDeg
-    };
-}
 
 function bboxFromNodes(nodes, padDeg=0.03) {
     return {
@@ -1175,13 +1555,7 @@ async function fetchVegetationForBbox(bbox, statusElId='veg-status') {
 
     try {
         setVegStatus(statusElId, '🌲 A consultar OSM (vegetação/uso do solo)…', true);
-        const res = await fetch('https://overpass-api.de/api/interpreter', {
-            method:'POST',
-            headers:{'Content-Type':'application/x-www-form-urlencoded'},
-            body:'data='+encodeURIComponent(q)
-        });
-        if (!res.ok) throw new Error('HTTP '+res.status);
-        const data = await res.json();
+        const data = await fetchOverpass(q, 10000);
 
         const nodeMap = {};
         data.elements.filter(e=>e.type==='node').forEach(n=>{ nodeMap[n.id]={lat:n.lat,lng:n.lon}; });
@@ -1193,7 +1567,8 @@ async function fetchVegetationForBbox(bbox, statusElId='veg-status') {
                 const points  = way.nodes.map(id=>nodeMap[id]).filter(Boolean);
                 return {type: vegType, points};
             })
-            .filter(w=>w.points.length>=3);
+            .filter(w=>w.points.length>=3)
+            .map(w=>({...w, bbox: polygonBbox(w.points)}));
 
         vegCacheBbox = key;
         const cnt = vegetationPolygons.length;
@@ -1217,13 +1592,118 @@ function drawVegetationMapLayer() {
         const lp = L.polygon(poly.points.map(p=>[p.lat,p.lng]),{
             color:col, weight:0.8, fillColor:col, fillOpacity:0.28
         });
-        lp.bindTooltip(`🌲 ${name}`,{sticky:true,className:'leaflet-tooltip'});
+        lp.bindTooltip(`🌲 ${escapeHTML(name)}`,{sticky:true,className:'leaflet-tooltip'});
         vegMapLayer.addLayer(lp);
     });
     map.addLayer(vegMapLayer);
     // Show legend
     const leg = document.getElementById('veg-legend');
     if (leg) leg.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════════════
+//  EDIFÍCIOS — FETCH / PARSE / GEOMETRIA (obstáculos)
+// ══════════════════════════════════════════════════════
+
+function setBldgStatus(elId, msg, isLoading) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!msg) { el.style.display='none'; return; }
+    el.style.display = 'block';
+    el.innerText = msg;
+    el.style.background = isLoading ? '#2b2b00' : '#2b1a0d';
+    el.style.color = isLoading ? '#ffcc00' : '#e8a06a';
+}
+
+// Extrai a altura (m) das tags OSM; null se não houver dados utilizáveis.
+function _buildingHeight(tags) {
+    let h = null;
+    if (tags.height != null) {
+        // "18", "18 m", "18.5", "18,5" — fica com o primeiro número
+        const m = parseFloat(String(tags.height).replace(',', '.'));
+        if (Number.isFinite(m)) h = m;
+    }
+    if (h === null && tags['building:levels'] != null) {
+        const lv = parseFloat(String(tags['building:levels']).replace(',', '.'));
+        if (Number.isFinite(lv)) h = lv * BLDG_LEVEL_M;
+    }
+    return (h !== null && h > 0 && h < 400) ? h : null;   // limite de sanidade
+}
+
+async function fetchBuildingsForBbox(bbox, statusElId='bldg-status') {
+    const key = [bbox.s,bbox.w,bbox.n,bbox.e].map(v=>v.toFixed(3)).join(',');
+    if (buildingCacheBbox === key) return buildingPolygons;
+
+    // Só edifícios COM altura ou nº de pisos — reduz muito o volume mesmo em cidades.
+    const q = `[out:json][timeout:25];(` +
+        `way["building"]["height"](${bbox.s},${bbox.w},${bbox.n},${bbox.e});` +
+        `way["building"]["building:levels"](${bbox.s},${bbox.w},${bbox.n},${bbox.e});` +
+        `);out body;>;out skel qt;`;
+
+    try {
+        setBldgStatus(statusElId, '🏢 A consultar OSM (edifícios com altura)…', true);
+        const data = await fetchOverpass(q, 12000);
+
+        const nodeMap = {};
+        data.elements.filter(e=>e.type==='node').forEach(n=>{ nodeMap[n.id]={lat:n.lat,lng:n.lon}; });
+
+        buildingPolygons = data.elements
+            .filter(e=>e.type==='way' && e.nodes && e.tags)
+            .map(way=>{
+                const heightM = _buildingHeight(way.tags);
+                const points  = way.nodes.map(id=>nodeMap[id]).filter(Boolean);
+                return { heightM, points };
+            })
+            .filter(b => b.heightM !== null && b.points.length >= 3)
+            .map(b => ({ ...b, bbox: polygonBbox(b.points) }));
+
+        buildingCacheBbox = key;
+        const cnt = buildingPolygons.length;
+        setBldgStatus(statusElId, cnt>0 ? `🏢 ${cnt} edifícios com altura carregados` : '🏢 Sem edifícios com altura mapeada na área', false);
+        drawBuildingMapLayer();
+        return buildingPolygons;
+    } catch(err) {
+        setBldgStatus(statusElId, '⚠️ OSM indisponível — edifícios ignorados', false);
+        buildingPolygons = [];
+        return [];
+    }
+}
+
+function drawBuildingMapLayer() {
+    if (buildingMapLayer) { try{map.removeLayer(buildingMapLayer);}catch(e){} buildingMapLayer=null; }
+    if (buildingPolygons.length===0) return;
+    buildingMapLayer = L.layerGroup();
+    buildingPolygons.forEach(b=>{
+        const lp = L.polygon(b.points.map(p=>[p.lat,p.lng]),{
+            color:BLDG_COLOR, weight:0.8, fillColor:BLDG_COLOR, fillOpacity:0.30
+        });
+        lp.bindTooltip(`🏢 ${Math.round(b.heightM)} m`,{sticky:true,className:'leaflet-tooltip'});
+        buildingMapLayer.addLayer(lp);
+    });
+    map.addLayer(buildingMapLayer);
+}
+
+// Altura do edifício mais alto que contém o ponto (0 se nenhum). Usa a bbox de
+// cada polígono para descartar rapidamente antes do ray-casting.
+function buildingHeightAtPoint(lat, lng) {
+    let hMax = 0;
+    for (const b of buildingPolygons) {
+        const bb = b.bbox;
+        if (bb && (lat<bb.s||lat>bb.n||lng<bb.w||lng>bb.e)) continue;
+        if (pointInPolygon(lat, lng, b) && b.heightM > hMax) hMax = b.heightM;
+    }
+    return hMax;
+}
+
+// Bounding box de um polígono — usado para descartar rapidamente testes de
+// ray-casting em polígonos cuja bbox nem sequer contém o ponto amostrado.
+function polygonBbox(points) {
+    let s=90, w=180, n=-90, e=-180;
+    for(const p of points) {
+        if(p.lat<s) s=p.lat; if(p.lat>n) n=p.lat;
+        if(p.lng<w) w=p.lng; if(p.lng>e) e=p.lng;
+    }
+    return {s,w,n,e};
 }
 
 // Ray-casting point-in-polygon (lat/lng)
@@ -1238,6 +1718,8 @@ function pointInPolygon(lat, lng, poly) {
 
 function vegTypeAtPoint(lat, lng) {
     for(const poly of vegetationPolygons) {
+        const b = poly.bbox;
+        if(b && (lat<b.s||lat>b.n||lng<b.w||lng>b.e)) continue; // fora da bbox — salta ray-casting
         if(pointInPolygon(lat, lng, poly)) return poly.type;
     }
     return null;
@@ -1291,6 +1773,14 @@ function destinationPoint(lat,lng,bearingDeg,distKm) {
     return {lat:lat2*180/Math.PI, lng:lng2*180/Math.PI};
 }
 
+// Bearing inicial (graus, 0-360) do ponto a para o ponto b
+function bearingBetween(a,b) {
+    const φ1=a.lat*Math.PI/180, φ2=b.lat*Math.PI/180, Δλ=(b.lng-a.lng)*Math.PI/180;
+    const y=Math.sin(Δλ)*Math.cos(φ2);
+    const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+
 function fresnelRadius(d1km,d2km,totalKm,freqMHz) {
     if(d1km<=0||d2km<=0||totalKm<=0) return 0;
     return 17.3*Math.sqrt((d1km*d2km)/(freqMHz/1000*totalKm));
@@ -1312,9 +1802,18 @@ function triggerRecalculate() {
     else if (mode==='link' && markerA && markerB) updateLinkUI();
 }
 
+// Versão com debounce para inputs que disparam em cada tecla/clique de spinner
+// (potência/altura de antena) — evita recalcular tudo (LOS+vegetação+SVG) a cada carácter.
+let _recalcDebounceTimer = null;
+function triggerRecalculateDebounced(delayMs=250) {
+    clearTimeout(_recalcDebounceTimer);
+    _recalcDebounceTimer = setTimeout(triggerRecalculate, delayMs);
+}
+
 async function updateLinkUI() {
     if (busy) return;
     busy=true; document.getElementById('loader').style.display='inline-block';
+    showCalcBanner('⏳ A calcular cobertura real (relevo, vegetação e linha de vista)…');
     try {
         const posA=markerA.getLatLng(), posB=markerB.getLatLng();
         const dist=getDistance(posA.lat,posA.lng,posB.lat,posB.lng);
@@ -1325,51 +1824,82 @@ async function updateLinkUI() {
         const pB=parseFloat(document.getElementById('radioB-power').value)||0.1;
         const wf=getCurrentWeatherFactor();
         const useVeg = document.getElementById('use-vegetation').checked;
+        const useBuildings = document.getElementById('use-buildings').checked;
 
-        // Fetch LOS + vegetation in PARALLEL for speed
-        const bbox = pathBbox(posA, posB);
-        const [los] = await Promise.all([
-            checkLineOfSightReal(posA,posB,dist,effAltA,effAltB),
-            useVeg ? fetchVegetationForBbox(bbox, 'veg-status') : Promise.resolve([])
+        // Bbox suficientemente grande para cobrir as áreas de cobertura real de A e B
+        const padKm=Math.max(maxRangeKm(pA,effAltA,wf),maxRangeKm(pB,effAltB,wf));
+        const covBbox={
+            s:Math.min(posA.lat,posB.lat)-padKm/90, n:Math.max(posA.lat,posB.lat)+padKm/90,
+            w:Math.min(posA.lng,posB.lng)-padKm/70, e:Math.max(posA.lng,posB.lng)+padKm/70
+        };
+
+        // Dados de terreno-superfície (vegetação + edifícios) primeiro — a LOS e a cobertura
+        // usam os edifícios como obstáculos, por isso têm de estar carregados antes do cálculo.
+        await Promise.all([
+            useVeg ? fetchVegetationForBbox(covBbox, 'veg-status') : Promise.resolve([]),
+            useBuildings ? fetchBuildingsForBbox(covBbox, 'bldg-status') : Promise.resolve([])
         ]);
 
-        // Vegetation profile & attenuation (synchronous — uses cached polygons)
+        // LOS directo (64 amostras SRTM + edifícios + difracção)
+        const los = await checkLineOfSightReal(posA,posB,dist,effAltA,effAltB,useBuildings);
+
+        // Vegetação/atenuação ao longo do trajecto directo (informativo nos painéis)
         const samples = pathSamples(posA, posB, 64);
         const vegProfile = useVeg ? buildVegProfile(samples) : samples.map(()=>({vegType:null,attDB:0}));
         const vegAtten   = calcVegAttenuation(vegProfile, dist);
 
-        // Difracção: multiplicador de alcance adicional
+        // Difracção do trajecto directo (informativo)
         const diff = los.diffraction;
         const diffMultiplier = diff ? Math.pow(10, -diff.lossDB / 20) : 1.0;
 
-        const rA_base=maxRangeKm(pA,effAltA,wf), rB_base=maxRangeKm(pB,effAltB,wf);
-        const rA=rA_base*vegAtten.multiplier*diffMultiplier;
-        const rB=rB_base*vegAtten.multiplier*diffMultiplier;
+        // Cobertura real 360º de cada rádio (relevo + curvatura + vegetação + edifícios) —
+        // substitui os círculos fixos.
+        const [covA, covB] = await Promise.all([
+            computeCoveragePolygon(posA, effAltA, pA, wf, useVeg, 24, 8, useBuildings),
+            computeCoveragePolygon(posB, effAltB, pB, wf, useVeg, 24, 8, useBuildings)
+        ]);
+        const bearingAB = bearingBetween(posA, posB);
+        const reachA = coverageRangeAtBearing(covA, bearingAB);        // alcance real de A em direcção a B
+        const reachB = coverageRangeAtBearing(covB, bearingAB+180);    // alcance real de B em direcção a A
+        // Ligação com sucesso = as duas coberturas reais alcançam-se mutuamente (overlap)
+        const inRange = dist<=reachA && dist<=reachB;
 
-        if(circleA) map.removeLayer(circleA); if(circleB) map.removeLayer(circleB);
-        circleA=L.circle(posA,{radius:rA*1000,color:'#4eff4e',weight:2,fillColor:'#5b7a47',fillOpacity:.12}).addTo(map);
-        circleB=L.circle(posB,{radius:rB*1000,color:'#00c3ff',weight:2,fillColor:'#3b5c66',fillOpacity:.10}).addTo(map);
+        if(coverageA) map.removeLayer(coverageA); if(coverageB) map.removeLayer(coverageB);
+        if(heatmapOn()) {
+            coverageA=buildGradedCoverage(posA, covA, getRadioColor('A')).addTo(map);
+            coverageB=buildGradedCoverage(posB, covB, getRadioColor('B')).addTo(map);
+        } else {
+            coverageA=L.polygon(covA.polyCoords,{color:getRadioColor('A'),weight:2,fillColor:getRadioColor('A'),fillOpacity:.15}).addTo(map);
+            coverageB=L.polygon(covB.polyCoords,{color:getRadioColor('B'),weight:2,fillColor:getRadioColor('B'),fillOpacity:.13}).addTo(map);
+        }
         if(polylineLink) map.removeLayer(polylineLink);
         if(obstacleMarker) map.removeLayer(obstacleMarker);
 
-        drawProfileChart(los, dist, vegProfile);
+        drawProfileChart(los, dist, vegProfile, getRadioColor('A'), getRadioColor('B'));
 
-        const lineColor = {good:'#4eff4e',marginal:'#ffcc00',diff_low:'#ff9900',diff_med:'#ff6600',blocked:'#ff4e4e'}[los.status]||'#ff4e4e';
+        // Estado final: LOS/difracção do trajecto directo, rebaixado para "fora de alcance"
+        // se a distância exceder a cobertura real simulada de qualquer um dos rádios
+        let finalStatus = los.status;
+        if (!inRange && finalStatus!=='blocked') finalStatus = 'out_of_range';
+
+        const lineColor = {good:'#4eff4e',marginal:'#ffcc00',diff_low:'#ff9900',diff_med:'#ff6600',blocked:'#ff4e4e',out_of_range:'#b76bda'}[finalStatus]||'#ff4e4e';
         const qHTML = {
             good:     "<span class='status-good'>Excelente (LOS livre)</span>",
             marginal: "<span class='status-marginal'>Marginal (Fresnel parcial)</span>",
             diff_low: "<span class='status-diff-low'>🔆 Difracção fraca (≤10 dB) — possível</span>",
             diff_med: "<span class='status-diff-med'>🔆 Difracção média (10-25 dB) — sinal fraco</span>",
-            blocked:  "<span class='status-bad'>BLOQUEADO (&gt;25 dB)</span>"
-        }[los.status] || "<span class='status-bad'>BLOQUEADO</span>";
+            blocked:  "<span class='status-bad'>BLOQUEADO (&gt;25 dB)</span>",
+            out_of_range: "<span class='status-outrange'>📏 Fora de alcance — sem overlap de cobertura real</span>"
+        }[finalStatus] || "<span class='status-bad'>BLOQUEADO</span>";
 
         if(los.worstPoint && los.status!=='good') {
             const obstacleLat=los.worstPoint.lat, obstacleLng=los.worstPoint.lng;
             const obstacleAlt=Math.round(los.worstTerrainAlt)||0;
             const distFromA=getDistance(posA.lat,posA.lng,obstacleLat,obstacleLng).toFixed(2);
-            const obstacleLabel={blocked:'⛔ OBSTRUÇÃO TOTAL',marginal:'⚠️ Obstrução Fresnel',diff_low:'🔆 Difracção Fraca',diff_med:'🔆 Difracção Média'}[los.status]||'⛔';
+            const obstacleLabel=(los.worstIsBldg?'🏢 ':'')+({blocked:'⛔ OBSTRUÇÃO TOTAL',marginal:'⚠️ Obstrução Fresnel',diff_low:'🔆 Difracção Fraca',diff_med:'🔆 Difracção Média'}[los.status]||'⛔');
             const vegAtPoint = vegTypeAtPoint(obstacleLat, obstacleLng);
             const diffRow = diff&&diff.lossDB>0.5 ? `<tr><td style="color:#ff9900;padding:1px 4px;">🔆 Difracção</td><td style="padding:1px 4px;">${diff.lossDB.toFixed(1)} dB (v=${diff.vMax.toFixed(2)})</td></tr>` : '';
+            const bldgRow = los.worstIsBldg ? `<tr><td style="color:#e8a06a;padding:1px 4px;">🏢 Edifício</td><td style="padding:1px 4px;">~${Math.round(los.worstBldgH)} m de altura</td></tr>` : '';
             const obstaclePopup = `
               <div style="font-family:'Segoe UI',sans-serif;min-width:200px;font-size:12px;line-height:1.5;">
                 <div style="background:${lineColor}33;border-left:3px solid ${lineColor};padding:4px 7px;margin-bottom:6px;">
@@ -1382,6 +1912,7 @@ async function updateLinkUI() {
                   <tr><td style="color:#888;padding:1px 4px;">📏 Dist. de A</td><td style="padding:1px 4px;">${distFromA} km</td></tr>
                   <tr><td style="color:#888;padding:1px 4px;">📶 Fresnel inv.</td><td style="padding:1px 4px;">${(los.worstIntrusionPct*100).toFixed(0)}%</td></tr>
                   ${diffRow}
+                  ${bldgRow}
                   ${vegAtPoint?`<tr><td style="color:#4eb84e;padding:1px 4px;">🌲 Vegetação</td><td style="padding:1px 4px;">${VEG_NAMES_PT[vegAtPoint]||vegAtPoint}</td></tr>`:''}
                 </table>
                 <div style="margin-top:5px;padding:3px 7px;background:#1a2417;border-radius:3px;font-size:10px;color:#7d9474;">
@@ -1397,7 +1928,7 @@ async function updateLinkUI() {
         const nameB_label=document.getElementById('radioB-name').value||'Bravo';
         document.getElementById('res-distance').innerText=`Distância: ${dist.toFixed(2)} km`;
         document.getElementById('res-diff-alt').innerText=`ΔAlt efectiva: ${Math.abs(effAltA-effAltB)} m`;
-        document.getElementById('res-max-range').innerText=`Alc A→B: ${rA.toFixed(1)}km | Alc B→A: ${rB.toFixed(1)}km`;
+        document.getElementById('res-max-range').innerText=`Alcance real A→B: ${reachA.toFixed(1)}km | B→A: ${reachB.toFixed(1)}km`;
         document.getElementById('res-quality').innerHTML=`Qualidade: ${qHTML}`;
         document.getElementById('res-fresnel').innerText=`Fresnel @446MHz: invasão máx ${(los.worstIntrusionPct*100).toFixed(0)}% · 64 amostras SRTM`;
 
@@ -1412,15 +1943,15 @@ async function updateLinkUI() {
         } else { vegEl.innerText=useVeg?'🌲 Vegetação: sem cobertura no trajecto':'🌲 Vegetação: desactivada'; }
         vegEl.style.display='block';
 
-        const statusLabel={good:'DESOBSTRUÍDO',marginal:'MARGINAL',diff_low:'DIFRACÇÃO FRACA',diff_med:'DIFRACÇÃO MÉDIA',blocked:'BLOQUEADO'}[los.status]||'BLOQUEADO';
+        const statusLabel={good:'DESOBSTRUÍDO',marginal:'MARGINAL',diff_low:'DIFRACÇÃO FRACA',diff_med:'DIFRACÇÃO MÉDIA',blocked:'BLOQUEADO',out_of_range:'FORA DE ALCANCE'}[finalStatus]||'BLOQUEADO';
         document.getElementById('log-output').innerText=
-            `[ENLACE A↔B — 64 AMOSTRAS SRTM + DIFRACÇÃO ITU-R P.526]\n`+
+            `[ENLACE A↔B — COBERTURA REAL (24 raios × 8 amostras/rádio) + 64 AMOSTRAS SRTM/DIFRACÇÃO ITU-R P.526]\n`+
             `Data: ${new Date().toLocaleString('pt-PT')} | Estado: ${statusLabel}\n`+
-            `Distância: ${dist.toFixed(3)} km\n\n`+
-            `A — ${nameA_label}: GPS ${posA.lat.toFixed(6)}°N ${posA.lng.toFixed(6)}°E | ${effAltA}m | ${pA}W → ${rA.toFixed(1)}km\n`+
-            `B — ${nameB_label}: GPS ${posB.lat.toFixed(6)}°N ${posB.lng.toFixed(6)}°E | ${effAltB}m | ${pB}W → ${rB.toFixed(1)}km\n\n`+
-            (diff&&diff.lossDB>0.5?`DIFRACÇÃO: ${diff.lossDB.toFixed(1)} dB (v=${diff.vMax.toFixed(2)}) → ×${diffMultiplier.toFixed(3)}\n`:'')+
-            `VEGETAÇÃO: ${vegAtten.vegKm>0.01?`${vegAtten.vegKm.toFixed(2)} km → −${vegAtten.totalDB.toFixed(1)} dB → ×${vegAtten.multiplier.toFixed(3)}`:'sem cobertura'}`+
+            `Distância: ${dist.toFixed(3)} km | Overlap de cobertura real: ${inRange?'SIM':'NÃO'}\n\n`+
+            `A — ${nameA_label}: GPS ${posA.lat.toFixed(6)}°N ${posA.lng.toFixed(6)}°E | ${effAltA}m | ${pA}W → alcance real ${reachA.toFixed(1)}km\n`+
+            `B — ${nameB_label}: GPS ${posB.lat.toFixed(6)}°N ${posB.lng.toFixed(6)}°E | ${effAltB}m | ${pB}W → alcance real ${reachB.toFixed(1)}km\n\n`+
+            (diff&&diff.lossDB>0.5?`DIFRACÇÃO (trajecto directo): ${diff.lossDB.toFixed(1)} dB (v=${diff.vMax.toFixed(2)}) → ×${diffMultiplier.toFixed(3)}\n`:'')+
+            `VEGETAÇÃO (trajecto directo): ${vegAtten.vegKm>0.01?`${vegAtten.vegKm.toFixed(2)} km → −${vegAtten.totalDB.toFixed(1)} dB → ×${vegAtten.multiplier.toFixed(3)}`:'sem cobertura'}`+
             (los.worstPoint?`\nOBSTRUÇÃO: ${los.worstPoint.lat.toFixed(6)}°N ${los.worstPoint.lng.toFixed(6)}°E | ${Math.round(los.worstTerrainAlt)}m`:'');
 
         currentCalculatedData={
@@ -1429,7 +1960,7 @@ async function updateLinkUI() {
             vegDB:vegAtten.totalDB.toFixed(1),vegKm:vegAtten.vegKm.toFixed(2),diffDB:diff?diff.lossDB.toFixed(1):'0',
             timestamp:new Date().toLocaleString('pt-PT'),weather:document.getElementById('weather').options[document.getElementById('weather').selectedIndex].text
         };
-    } finally { busy=false; document.getElementById('loader').style.display='none'; }
+    } finally { busy=false; document.getElementById('loader').style.display='none'; hideCalcBanner(); }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1494,26 +2025,32 @@ function classifyWithDiffraction(baseLOS, diff) {
     return 'blocked';                             // >25 dB → sem sinal útil
 }
 
-async function checkLineOfSightReal(posA, posB, totalDist, effAltA, effAltB) {
+async function checkLineOfSightReal(posA, posB, totalDist, effAltA, effAltB, useBuildings=false) {
     const N=64, coords=[];
     for(let i=0;i<=N;i++) coords.push({lat:posA.lat+(posB.lat-posA.lat)*i/N, lng:posA.lng+(posB.lng-posA.lng)*i/N});
     const terrainElevs=await batchElevation(coords);
     const Reff=8495, freqMHz=446;
-    let worstIntrusionPct=0, worstPoint=null, worstTerrainAlt=0, status='good', profileArr=[];
+    // Alturas de edifícios por amostra (0 se não houver ou toggle desligado). São somadas
+    // ao relevo → o edifício torna-se um obstáculo no perfil (LOS/Fresnel/difracção).
+    const bldgH = coords.map(c => (useBuildings && buildingPolygons.length) ? buildingHeightAtPoint(c.lat, c.lng) : 0);
+    let worstIntrusionPct=0, worstPoint=null, worstTerrainAlt=0, worstIsBldg=false, worstBldgH=0;
+    let status='good', profileArr=[], terrainArr=[];
     for(let i=0;i<=N;i++) {
         const f=i/N, d1=totalDist*f, d2=totalDist-d1;
         const lineH=effAltA+(effAltB-effAltA)*f-(d1*d2)/(2*Reff)*1000;
-        const terrain=terrainElevs[i]; profileArr.push(terrain);
-        const clearance=lineH-terrain;
+        const surface=terrainElevs[i]+bldgH[i];   // relevo + edifício
+        profileArr.push(surface); terrainArr.push(terrainElevs[i]);
+        const clearance=lineH-surface;
         const fres=fresnelRadius(d1,d2,totalDist,freqMHz);
         const ip=fres>0?Math.max(0,(fres-clearance)/fres):0;
+        const takeWorst=()=>{ worstIntrusionPct=ip; worstPoint=coords[i]; worstTerrainAlt=surface; worstIsBldg=bldgH[i]>0.5; worstBldgH=bldgH[i]; };
         if(clearance<0&&i!==0&&i!==N) {
             status='blocked';
-            if(ip>worstIntrusionPct){worstIntrusionPct=ip;worstPoint=coords[i];worstTerrainAlt=terrain;}
+            if(ip>worstIntrusionPct) takeWorst();
         } else if(ip>0.4&&status!=='blocked') {
             status='marginal';
-            if(ip>worstIntrusionPct){worstIntrusionPct=ip;worstPoint=coords[i];worstTerrainAlt=terrain;}
-        } else if(ip>worstIntrusionPct&&status==='good') { worstIntrusionPct=ip; worstTerrainAlt=terrain; }
+            if(ip>worstIntrusionPct) takeWorst();
+        } else if(ip>worstIntrusionPct&&status==='good') { worstIntrusionPct=ip; worstTerrainAlt=surface; worstIsBldg=bldgH[i]>0.5; worstBldgH=bldgH[i]; }
     }
 
     // ── Knife-Edge Diffraction (ITU-R P.526 / Deygout) ───────────────────
@@ -1523,10 +2060,18 @@ async function checkLineOfSightReal(posA, posB, totalDist, effAltA, effAltB) {
         status = classifyWithDiffraction('blocked', diffraction);
     }
 
-    return {status, worstIntrusionPct, worstPoint, worstTerrainAlt, profileArr, effAltA, effAltB, diffraction};
+    return {status, worstIntrusionPct, worstPoint, worstTerrainAlt, worstIsBldg, worstBldgH, profileArr, terrainArr, effAltA, effAltB, diffraction};
 }
 
-function drawProfileChart(losReport, totalDist, vegProfile=[]) {
+// Repõe o painel de perfil de relevo/LOS no estado vazio (usado no Scanner 360º,
+// que não calcula um enlace A↔B, e antes de qualquer cálculo de enlace).
+function clearProfileChart() {
+    const svg=document.getElementById('profile-svg');
+    if (!svg) return;
+    svg.innerHTML='<text x="20" y="55" fill="#6b7d67" font-size="7" font-family="monospace">Nenhum enlace activo</text>';
+}
+
+function drawProfileChart(losReport, totalDist, vegProfile=[], colorA='#4eff4e', colorB='#00c3ff') {
     const svg=document.getElementById('profile-svg'); svg.innerHTML='';
     const p=losReport.profileArr;
     const allV=[...p,losReport.effAltA,losReport.effAltB];
@@ -1578,6 +2123,31 @@ function drawProfileChart(losReport, totalDist, vegProfile=[]) {
         });
     }
 
+    // ── Building bumps (parcela do perfil que é edifício, a laranja) ──────
+    const terr = losReport.terrainArr;
+    if(Array.isArray(terr) && terr.length===p.length) {
+        const segW = 250 / N;
+        let anyBldg=false;
+        for(let i=0;i<=N;i++) {
+            const bh = p[i]-terr[i];        // altura do edifício nesse ponto (m)
+            if(bh<=0.5) continue;
+            anyBldg=true;
+            const yTop=yAt(p[i]), yBase=yAt(terr[i]);
+            const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+            rect.setAttribute('x', xAt(i)-segW/2); rect.setAttribute('y', yTop);
+            rect.setAttribute('width', segW+1); rect.setAttribute('height', Math.max(1,yBase-yTop));
+            rect.setAttribute('fill',BLDG_COLOR); rect.setAttribute('opacity','0.9');
+            svg.appendChild(rect);
+        }
+        if(anyBldg) {
+            const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+            lbl.setAttribute('x','276'); lbl.setAttribute('y','14');
+            lbl.setAttribute('fill',BLDG_COLOR); lbl.setAttribute('font-size','5.5');
+            lbl.setAttribute('font-family','sans-serif'); lbl.textContent='EDIF';
+            svg.appendChild(lbl);
+        }
+    }
+
     // ── Beam (line of sight) ──────────────────────────────
     const beam=document.createElementNS('http://www.w3.org/2000/svg','line');
     beam.setAttribute('x1',xAt(0)); beam.setAttribute('y1',yAt(losReport.effAltA));
@@ -1586,8 +2156,95 @@ function drawProfileChart(losReport, totalDist, vegProfile=[]) {
     beam.setAttribute('stroke-width','1.5'); svg.appendChild(beam);
 
     const mkText=(x,y,txt,fill,sz='7')=>{ const t=document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('fill',fill);t.setAttribute('font-size',sz);t.setAttribute('font-family','sans-serif');t.textContent=txt;svg.appendChild(t); };
-    mkText(3,18,'▲ A','#4eff4e'); mkText(260,18,'▲ B','#00c3ff');
+    mkText(3,18,'▲ A',colorA); mkText(260,18,'▲ B',colorB);
     mkText(90,97,`${totalDist.toFixed(1)} km (relevo real)`,'#5b7a47');
+}
+
+// ══════════════════════════════════════════════════════
+//  COBERTURA REAL — ray-casting terreno + vegetação (partilhado por Scanner e Enlace)
+// ══════════════════════════════════════════════════════
+// Lança `rayCount` raios a partir de `center`, amostra `spr` pontos por raio até ao alcance
+// teórico (maxRangeKm), corta cada raio onde o relevo bloqueia a LOS (curvatura incluída) e
+// aplica atenuação de vegetação. Devolve o polígono resultante + o alcance por raio (para
+// consultas pontuais precisas num bearing específico, ex.: verificar se um outro ponto está
+// dentro da cobertura real).
+async function computeCoveragePolygon(center, effAlt, power, weatherFactor, useVeg, rayCount=60, spr=10, useBuildings=false) {
+    const maxKm=maxRangeKm(power,effAlt,weatherFactor);
+    const allCoords=[], rayMeta=[];
+    for(let r=0;r<rayCount;r++) {
+        const bearing=(r*360)/rayCount;
+        for(let s=1;s<=spr;s++) {
+            const d=maxKm*(s/spr), pt=destinationPoint(center.lat,center.lng,bearing,d);
+            allCoords.push(pt); rayMeta.push({ray:r,dist:d});
+        }
+    }
+    const elevs=await batchElevation(allCoords);
+    const bldgOn = useBuildings && buildingPolygons.length>0;
+    const Reff=8495, polyCoords=[], rayRanges=[];
+    for(let r=0;r<rayCount;r++) {
+        let rayRange=maxKm;
+        for(let s=0;s<spr;s++) {
+            const idx=r*spr+s, d=rayMeta[idx].dist;
+            // Superfície = relevo + altura de edifício nesse ponto (obstáculo).
+            const terrain=elevs[idx]+(bldgOn?buildingHeightAtPoint(allCoords[idx].lat,allCoords[idx].lng):0);
+            const lh=effAlt-(d*d)/(2*Reff)*1000;
+            if(terrain>lh+5){rayRange=Math.min(rayRange,d);break;}
+        }
+        if(useVeg && vegetationPolygons.length>0) {
+            const raySamples=[];
+            for(let s=0;s<spr;s++) raySamples.push(allCoords[r*spr+s]);
+            const vp = buildVegProfile(raySamples);
+            const va = calcVegAttenuation(vp, rayRange);
+            rayRange = rayRange * va.multiplier;
+        }
+        rayRanges.push(rayRange);
+        const ep=destinationPoint(center.lat,center.lng,(r*360)/rayCount,Math.max(rayRange,maxKm*.10));
+        polyCoords.push([ep.lat,ep.lng]);
+    }
+    return {polyCoords, rayRanges, maxKm, rayCount};
+}
+
+// Distância real de cobertura (relevo+vegetação) de `center` num bearing específico —
+// usa a mesma malha de raios já calculada, interpolando pelo raio mais próximo.
+function coverageRangeAtBearing(coverage, bearingDeg) {
+    const idx = Math.round(((bearingDeg%360)/360)*coverage.rayCount) % coverage.rayCount;
+    return coverage.rayRanges[idx];
+}
+
+// Verdadeiro se o utilizador activou o mapa de calor de sinal.
+function heatmapOn() {
+    const el = document.getElementById('use-heatmap');
+    return !!(el && el.checked);
+}
+
+// Constrói uma cobertura em "mapa de calor": vários anéis concêntricos a fracções
+// do alcance real de cada raio, com opacidade crescente para o centro — o sinal é
+// mais forte junto à antena e desvanece até ao limite útil. Segue o relevo (usa
+// rayRanges), não é um círculo. `color` = cor do rádio (mantém a identidade).
+function buildGradedCoverage(center, coverage, color) {
+    const bands = [
+        { scale: 1.00, op: 0.10 },   // limite (sinal fraco)
+        { scale: 0.72, op: 0.16 },
+        { scale: 0.48, op: 0.24 },
+        { scale: 0.26, op: 0.34 }    // centro (sinal forte)
+    ];
+    const grp = L.layerGroup();
+    bands.forEach((band, bi) => {
+        const pts = [];
+        for (let r = 0; r < coverage.rayCount; r++) {
+            const rng = Math.max(coverage.rayRanges[r] * band.scale, coverage.maxKm * 0.02);
+            const ep = destinationPoint(center.lat, center.lng, (r*360)/coverage.rayCount, rng);
+            pts.push([ep.lat, ep.lng]);
+        }
+        grp.addLayer(L.polygon(pts, {
+            color: color,
+            weight: bi === 0 ? 1.5 : 0,      // contorno só no anel exterior
+            fillColor: color,
+            fillOpacity: band.op,
+            interactive: false
+        }));
+    });
+    return grp;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1596,57 +2253,38 @@ function drawProfileChart(losReport, totalDist, vegProfile=[]) {
 async function runCoverageScanner() {
     if(busy) return;
     busy=true; document.getElementById('loader').style.display='inline-block';
+    showCalcBanner('⏳ A traçar cobertura 360º sobre relevo real…');
+    _lastElevRetry = () => runCoverageScanner();
     try {
         const center=markerA.getLatLng();
         const offA=parseInt(document.getElementById('radioA-offset').value)||0;
         const effAltA=altA+offA;
         const pA=parseFloat(document.getElementById('radioA-power').value)||0.1;
         const wf=getCurrentWeatherFactor();
-        const maxKm=maxRangeKm(pA,effAltA,wf);
         if(scanPolygon) map.removeLayer(scanPolygon);
-        if(circleA) map.removeLayer(circleA);
-        const rayCount=60, spr=10, allCoords=[], rayMeta=[];
-        for(let r=0;r<rayCount;r++) {
-            const bearing=(r*360)/rayCount;
-            for(let s=1;s<=spr;s++) {
-                const d=maxKm*(s/spr), pt=destinationPoint(center.lat,center.lng,bearing,d);
-                allCoords.push(pt); rayMeta.push({ray:r,dist:d});
-            }
-        }
-        const elevs=await batchElevation(allCoords);
-        const Reff=8495, polyCoords=[];
+        if(coverageA) map.removeLayer(coverageA);
 
-        // Fetch vegetation for the scanner area if active
         const useVeg = document.getElementById('use-vegetation').checked;
-        if(useVeg) await fetchVegetationForBbox({s:center.lat-maxKm/90,w:center.lng-maxKm/70,n:center.lat+maxKm/90,e:center.lng+maxKm/70},'veg-status');
+        const useBuildings = document.getElementById('use-buildings').checked;
+        const maxKmEst=maxRangeKm(pA,effAltA,wf);
+        const scanBbox={s:center.lat-maxKmEst/90,w:center.lng-maxKmEst/70,n:center.lat+maxKmEst/90,e:center.lng+maxKmEst/70};
+        await Promise.all([
+            useVeg ? fetchVegetationForBbox(scanBbox,'veg-status') : Promise.resolve([]),
+            useBuildings ? fetchBuildingsForBbox(scanBbox,'bldg-status') : Promise.resolve([])
+        ]);
 
-        for(let r=0;r<rayCount;r++) {
-            let rayRange=maxKm;
-            for(let s=0;s<spr;s++) {
-                const idx=r*spr+s, d=rayMeta[idx].dist, terrain=elevs[idx];
-                const lh=effAltA-(d*d)/(2*Reff)*1000;
-                if(terrain>lh+5){rayRange=Math.min(rayRange,d);break;}
-            }
-            // Apply vegetation attenuation for this ray
-            if(useVeg && vegetationPolygons.length>0) {
-                const raySamples=[];
-                for(let s=0;s<spr;s++) raySamples.push(allCoords[r*spr+s]);
-                const vp = buildVegProfile(raySamples);
-                const va = calcVegAttenuation(vp, rayRange);
-                rayRange = rayRange * va.multiplier;
-            }
-            const ep=destinationPoint(center.lat,center.lng,(r*360)/rayCount,Math.max(rayRange,maxKm*.10));
-            polyCoords.push([ep.lat,ep.lng]);
-        }
-        scanPolygon=L.polygon(polyCoords,{color:'#4eff4e',weight:2,fillColor:'#5b7a47',fillOpacity:.28,dashArray:'4,5'}).addTo(map);
+        const cov = await computeCoveragePolygon(center, effAltA, pA, wf, useVeg, 60, 10, useBuildings);
+        scanPolygon = heatmapOn()
+            ? buildGradedCoverage(center, cov, getRadioColor('A')).addTo(map)
+            : L.polygon(cov.polyCoords,{color:getRadioColor('A'),weight:2,fillColor:getRadioColor('A'),fillOpacity:.28,dashArray:'4,5'}).addTo(map);
         document.getElementById('res-distance').innerText='Modo: Scanner 360º';
         document.getElementById('res-diff-alt').innerText=`Centro: ${nameA}`;
-        document.getElementById('res-max-range').innerText=`Raio teórico: ${maxKm.toFixed(2)} km`;
+        document.getElementById('res-max-range').innerText=`Raio teórico: ${cov.maxKm.toFixed(2)} km`;
         document.getElementById('res-quality').innerHTML=`<span class='status-good'>Cobertura traçada sobre relevo real</span>`;
-        document.getElementById('res-fresnel').innerText=`${rayCount} raios × ${spr} amostras SRTM30m | 600 pontos de elevação`;
+        document.getElementById('res-fresnel').innerText=`60 raios × 10 amostras SRTM30m | 600 pontos de elevação`;
         document.getElementById('res-diffraction').style.display='none';
-        document.getElementById('log-output').innerText=`[SCANNER 360º]\nCentro: ${nameA}\nLat ${center.lat.toFixed(5)}, Lng ${center.lng.toFixed(5)}\nAlt: ${altA}m + ${offA}m = ${effAltA}m | ${pA}W\nAlcance teórico: ${maxKm.toFixed(2)} km`;
-    } finally { busy=false; document.getElementById('loader').style.display='none'; }
+        document.getElementById('log-output').innerText=`[SCANNER 360º]\nCentro: ${nameA}\nLat ${center.lat.toFixed(5)}, Lng ${center.lng.toFixed(5)}\nAlt: ${altA}m + ${offA}m = ${effAltA}m | ${pA}W\nAlcance teórico: ${cov.maxKm.toFixed(2)} km`;
+    } finally { busy=false; document.getElementById('loader').style.display='none'; hideCalcBanner(); }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1682,7 +2320,7 @@ async function placeNetworkNode(latlng) {
         iconSize:[22,22], iconAnchor:[11,11]
     });
     const marker=L.marker([latlng.lat,latlng.lng],{draggable:true,icon}).addTo(map);
-    marker.bindPopup(`<b>${name}</b><br>Tipo: ${NODE_LABELS[type]}<br>A obter altitude...`);
+    marker.bindPopup(`<b>${escapeHTML(name)}</b><br>Tipo: ${NODE_LABELS[type]}<br>A obter altitude...`);
 
     // Get elevation
     const elevs=await batchElevation([{lat:latlng.lat,lng:latlng.lng}]);
@@ -1691,13 +2329,13 @@ async function placeNetworkNode(latlng) {
     const node={id,name,type,model,power,offset,lat:latlng.lat,lng:latlng.lng,alt,marker};
     networkNodes.push(node);
 
-    marker.bindPopup(`<b>${name}</b><br>Tipo: ${NODE_LABELS[type]}<br>⛰ Alt: ${alt}m + ${offset}m offset<br>📻 ${power}W`);
+    marker.bindPopup(`<b>${escapeHTML(name)}</b><br>Tipo: ${NODE_LABELS[type]}<br>⛰ Alt: ${alt}m + ${offset}m offset<br>📻 ${power}W`);
     marker.on('dragend', async function(ev) {
         const ll=ev.target.getLatLng();
         node.lat=ll.lat; node.lng=ll.lng;
         const e2=await batchElevation([{lat:ll.lat,lng:ll.lng}]);
         node.alt=Math.round(e2[0]);
-        marker.bindPopup(`<b>${name}</b><br>⛰ Alt: ${node.alt}m + ${node.offset}m offset<br>📻 ${node.power}W`);
+        marker.bindPopup(`<b>${escapeHTML(name)}</b><br>⛰ Alt: ${node.alt}m + ${node.offset}m offset<br>📻 ${node.power}W`);
         renderNodeListUI();
     });
 
@@ -1741,7 +2379,7 @@ function renderNodeListUI() {
         const div=document.createElement('div'); div.className='node-item';
         const dot=document.createElement('div'); dot.className='node-dot'; dot.style.background=NODE_COLORS[node.type];
         const info=document.createElement('div'); info.className='node-info';
-        info.innerHTML=`<b>${node.name}</b><small>${NODE_LABELS[node.type]} · ${node.power}W · ⛰${node.alt+node.offset}m</small>`;
+        info.innerHTML=`<b>${escapeHTML(node.name)}</b><small>${NODE_LABELS[node.type]} · ${node.power}W · ⛰${node.alt+node.offset}m</small>`;
         const btn=document.createElement('button'); btn.className='node-btn'; btn.textContent='✕';
         btn.onclick=()=>removeNetworkNode(node.id);
         div.appendChild(dot); div.appendChild(info); div.appendChild(btn);
@@ -1756,6 +2394,8 @@ async function runNetworkAnalysis() {
     if(networkNodes.length<2) { alert('Posicione pelo menos 2 nós na rede antes de analisar.'); return; }
     if(busy) return;
     busy=true; document.getElementById('net-loader').style.display='inline-block';
+    showCalcBanner('⏳ A analisar rede — calculando todos os pares (relevo + vegetação + edifícios)…');
+    _lastElevRetry = () => runNetworkAnalysis();
     clearNetworkLayers();
 
     try {
@@ -1779,18 +2419,24 @@ async function runNetworkAnalysis() {
 
         const allElevs=await batchElevation(allCoords);
 
-        // Fetch vegetation ONCE for the full network bounding box
+        // Vegetação + edifícios UMA vez para toda a bounding box da rede.
         const useVeg = document.getElementById('net-use-vegetation').checked;
-        if(useVeg && networkNodes.length>=2) {
-            const netBbox = bboxFromNodes(networkNodes, 0.05);
-            await fetchVegetationForBbox(netBbox,'net-veg-status');
-        }
+        const useBuildings = document.getElementById('net-use-buildings').checked;
+        const netBbox = bboxFromNodes(networkNodes, 0.05);
+        await Promise.all([
+            useVeg ? fetchVegetationForBbox(netBbox,'net-veg-status') : Promise.resolve([]),
+            useBuildings ? fetchBuildingsForBbox(netBbox,'net-bldg-status') : Promise.resolve([])
+        ]);
+
+        // Superfície = relevo + edifícios (obstáculos). É esta que alimenta a LOS de cada par.
+        const bldgOn = useBuildings && buildingPolygons.length>0;
+        const allSurf = allElevs.map((e,idx)=> e + (bldgOn ? buildingHeightAtPoint(allCoords[idx].lat,allCoords[idx].lng) : 0));
 
         // Analyze each pair
         const pairResults=[];
         for(const {i,j,start,count} of pairCoordRanges) {
             const a=networkNodes[i], b=networkNodes[j];
-            const terrainSlice=allElevs.slice(start,start+count);
+            const terrainSlice=allSurf.slice(start,start+count);
             const dist=getDistance(a.lat,a.lng,b.lat,b.lng);
             const effA=a.alt+a.offset, effB=b.alt+b.offset;
             const los=analyzeSegment(terrainSlice,dist,effA,effB);
@@ -1805,15 +2451,19 @@ async function runNetworkAnalysis() {
             pairResults.push({i,j,dist,los,inRange,effA,effB,rA,rB,vegDB:vegAtt.totalDB});
         }
 
+        // Map "i-j" -> resultado do par, para lookups O(1) em vez de .find() repetido
+        // sobre pairResults (relay detection + desenho + log + matriz reusam este map).
+        const pairMap=new Map(pairResults.map(r=>[`${r.i}-${r.j}`,r]));
+
         // Relay detection: for each blocked pair, check if any repeater bridges it
         const directReachable=(i,j)=>{
-            const r=pairResults.find(p=>(p.i===i&&p.j===j)||(p.i===j&&p.j===i));
+            const r=pairMap.get(i<j?`${i}-${j}`:`${j}-${i}`);
             return r && r.inRange && (r.los==='good'||r.los==='marginal'||r.los==='diff_low');
         };
 
         const relayFor={}; // key "i-j" -> relay node index or null
         pairs.forEach(([i,j])=>{
-            const res=pairResults.find(p=>p.i===i&&p.j===j);
+            const res=pairMap.get(`${i}-${j}`);
             if(!res.inRange||res.los==='blocked') {
                 // look for relay via repeaters (or any other node)
                 for(let k=0;k<networkNodes.length;k++) {
@@ -1827,7 +2477,7 @@ async function runNetworkAnalysis() {
 
         // Draw map layers
         pairs.forEach(([i,j])=>{
-            const res=pairResults.find(p=>p.i===i&&p.j===j);
+            const res=pairMap.get(`${i}-${j}`);
             const a=networkNodes[i], b=networkNodes[j];
             const relay=relayFor[`${i}-${j}`];
             let color, dashArray;
@@ -1847,12 +2497,12 @@ async function runNetworkAnalysis() {
         });
 
         // Render matrix
-        renderConnectivityMatrix(pairResults,relayFor);
+        renderConnectivityMatrix(pairMap,relayFor);
 
         // Log report
         let log=`[REDE MULTI-NÓ] ${new Date().toLocaleString('pt-PT')}\n${networkNodes.length} nós, ${pairs.length} pares analisados\n\n`;
         pairs.forEach(([i,j])=>{
-            const res=pairResults.find(p=>p.i===i&&p.j===j);
+            const res=pairMap.get(`${i}-${j}`);
             const a=networkNodes[i],b=networkNodes[j];
             const relay=relayFor[`${i}-${j}`];
             let status=res.inRange&&res.los==='good'?'✓ DIRECTO OK':res.inRange&&res.los==='marginal'?'⚠ MARGINAL':relay!==undefined?`⟳ VIA ${networkNodes[relay].name}`:'✗ BLOQUEADO';
@@ -1860,7 +2510,7 @@ async function runNetworkAnalysis() {
         });
         document.getElementById('log-output').innerText=log;
 
-    } finally { busy=false; document.getElementById('net-loader').style.display='none'; }
+    } finally { busy=false; document.getElementById('net-loader').style.display='none'; hideCalcBanner(); }
 }
 
 function analyzeSegment(terrainSlice, totalDist, effAltA, effAltB) {
@@ -1880,17 +2530,17 @@ function analyzeSegment(terrainSlice, totalDist, effAltA, effAltB) {
     return classifyWithDiffraction('blocked', diff);
 }
 
-function renderConnectivityMatrix(pairResults,relayFor) {
+function renderConnectivityMatrix(pairMap,relayFor) {
     const n=networkNodes.length;
     let html='<table class="matrix-table"><thead><tr><th>↔</th>';
-    networkNodes.forEach(node=>{ html+=`<th style="color:${NODE_COLORS[node.type]}">${node.name}</th>`; });
+    networkNodes.forEach(node=>{ html+=`<th style="color:${NODE_COLORS[node.type]}">${escapeHTML(node.name)}</th>`; });
     html+='</tr></thead><tbody>';
     for(let i=0;i<n;i++) {
-        html+=`<tr><th style="color:${NODE_COLORS[networkNodes[i].type]}">${networkNodes[i].name}</th>`;
+        html+=`<tr><th style="color:${NODE_COLORS[networkNodes[i].type]}">${escapeHTML(networkNodes[i].name)}</th>`;
         for(let j=0;j<n;j++) {
             if(i===j){html+='<td class="m-self">—</td>';continue;}
             const ii=Math.min(i,j), jj=Math.max(i,j);
-            const res=pairResults.find(p=>p.i===ii&&p.j===jj);
+            const res=pairMap.get(`${ii}-${jj}`);
             const relay=relayFor[`${ii}-${jj}`];
             let cls,txt,title;
             if(res.inRange&&res.los==='good'){
@@ -1906,7 +2556,7 @@ function renderConnectivityMatrix(pairResults,relayFor) {
             } else {
                 cls='m-blocked';txt='✗';title=`${res.dist.toFixed(1)}km — Sem sinal`;
             }
-            html+=`<td class="${cls}" title="${title}">${txt}<br><small style="opacity:.6">${res.dist.toFixed(1)}km${res.vegDB>1?' 🌲':''}</small></td>`;
+            html+=`<td class="${cls}" title="${escapeHTML(title)}">${txt}<br><small style="opacity:.6">${res.dist.toFixed(1)}km${res.vegDB>1?' 🌲':''}</small></td>`;
         }
         html+='</tr>';
     }
@@ -1933,10 +2583,29 @@ function scenarioToJSON() {
     };
 }
 
+// Sanea um nó vindo de ficheiro/localStorage — coords válidas, tipo/potência/offset
+// dentro de limites — para que dados externos maliciosos ou corrompidos não partam o
+// mapa nem injectem NaN na cascata de elevação. Devolve nó saneado ou null (descartado).
+function _sanitizeImportedNode(nd) {
+    if (!nd || typeof nd !== 'object') return null;
+    const c = _sanitizeCoord({ lat: nd.lat, lng: nd.lng });
+    if (!c) return null;
+    const type   = ['base','field','repeater'].includes(nd.type) ? nd.type : 'field';
+    const power  = Math.min(Math.max(_finite(nd.power) ?? 0.5, 0.1), 100);
+    const offset = Math.min(Math.max(Math.round(_finite(nd.offset) ?? 0), 0), 1000);
+    const alt    = Math.round(_finite(nd.alt) ?? 0);
+    const id     = Number.isInteger(nd.id) ? nd.id : nextNodeId;
+    const name   = String(nd.name ?? 'Nó').slice(0, 40);
+    const model  = (typeof nd.model === 'string' && nd.model.length <= 40) ? nd.model : 'custom';
+    return { id, name, type, model, power, offset, lat: c.lat, lng: c.lng, alt };
+}
+
 async function loadNodesFromData(data) {
     clearNetwork();
-    document.getElementById('net-weather').value=data.weather||'1.0';
-    for(const nd of data.nodes) {
+    document.getElementById('net-weather').value = _finite(data && data.weather) !== null ? String(data.weather) : '1.0';
+    const nodes = (Array.isArray(data && data.nodes) ? data.nodes : [])
+        .map(_sanitizeImportedNode).filter(Boolean);
+    for(const nd of nodes) {
         nextNodeId=Math.max(nextNodeId,nd.id+1);
         const color=NODE_COLORS[nd.type];
         const icon=L.divIcon({
@@ -1945,13 +2614,13 @@ async function loadNodesFromData(data) {
             iconSize:[22,22],iconAnchor:[11,11]
         });
         const marker=L.marker([nd.lat,nd.lng],{draggable:true,icon}).addTo(map);
-        marker.bindPopup(`<b>${nd.name}</b><br>⛰ Alt: ${nd.alt}m + ${nd.offset}m<br>📻 ${nd.power}W`);
+        marker.bindPopup(`<b>${escapeHTML(nd.name)}</b><br>⛰ Alt: ${nd.alt}m + ${nd.offset}m<br>📻 ${nd.power}W`);
         const node={...nd,marker};
         networkNodes.push(node);
         marker.on('dragend',async function(ev){
             const ll=ev.target.getLatLng(); node.lat=ll.lat; node.lng=ll.lng;
             const e2=await batchElevation([{lat:ll.lat,lng:ll.lng}]); node.alt=Math.round(e2[0]);
-            marker.bindPopup(`<b>${node.name}</b><br>⛰ Alt: ${node.alt}m + ${node.offset}m<br>📻 ${node.power}W`);
+            marker.bindPopup(`<b>${escapeHTML(node.name)}</b><br>⛰ Alt: ${node.alt}m + ${node.offset}m<br>📻 ${node.power}W`);
             renderNodeListUI();
         });
     }
@@ -2187,129 +2856,20 @@ function updateWxSelectedLabel() {
 }
 
 // ══════════════════════════════════════════════════════
-//  INFRAESTRUTURA CRÍTICA (OSM Overpass + REP estático)
+//  REDE REP (dados estáticos, sem chamadas de rede)
 // ══════════════════════════════════════════════════════
 
-function setInfraStatus(msg, style) {
-    const el = document.getElementById('infra-status');
-    if (!el) return;
-    if (!msg) { el.style.display='none'; return; }
-    el.style.display='block'; el.innerText=msg;
-    const cfg={ok:{bg:'#0d2b0d',col:'#4eff4e'},warn:{bg:'#2b2b00',col:'#ffcc00'},error:{bg:'#2b0d0d',col:'#ff6600'}}[style]||{bg:'#1a2117',col:'#a4bfa3'};
-    el.style.background=cfg.bg; el.style.color=cfg.col;
-}
-
-// O servidor público overpass-api.de fica frequentemente sobrecarregado (504) sob procura elevada.
-// Mantemos uma lista de mirrors e tentamos sequencialmente antes de desistir.
-const OVERPASS_ENDPOINTS = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.osm.ch/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter'
-];
-
-async function loadInfrastructure() {
-    const bounds = map.getBounds();
-    const s=bounds.getSouth().toFixed(4), w=bounds.getWest().toFixed(4);
-    const n=bounds.getNorth().toFixed(4), e=bounds.getEast().toFixed(4);
-
-    // Construir query combinada com todos os tipos OSM
-    const qParts = Object.entries(INFRA_CFG)
-        .map(([,cfg])=>`node${cfg.tags}(${s},${w},${n},${e});way${cfg.tags}(${s},${w},${n},${e});`)
-        .join('');
-    const q = `[out:json][timeout:25];(${qParts});out center;`;
-    const body = 'data='+encodeURIComponent(q);
-
-    const areaDeg2 = (bounds.getNorth()-bounds.getSouth())*(bounds.getEast()-bounds.getWest());
-    if (areaDeg2 > 3) {
-        setInfraStatus('⚠️ Área do mapa muito grande — aproxime o zoom para um carregamento mais rápido e fiável.', 'warn');
-    }
-
-    let data = null, lastErr = null;
-    for (let i=0; i<OVERPASS_ENDPOINTS.length; i++) {
-        try {
-            setInfraStatus(`⬇ A carregar infraestrutura OSM… (servidor ${i+1}/${OVERPASS_ENDPOINTS.length})`, 'warn');
-            const res = await _fetchTimeout(OVERPASS_ENDPOINTS[i], {
-                method:'POST',
-                headers:{'Content-Type':'application/x-www-form-urlencoded'},
-                body
-            }, 20000);
-            if (!res.ok) throw new Error('HTTP '+res.status);
-            data = await res.json();
-            break;
-        } catch(e) {
-            lastErr = e;
-            console.warn('[Infra] Servidor falhou:', OVERPASS_ENDPOINTS[i], e);
-        }
-    }
-
-    if (!data) {
-        const reason = lastErr?.name==='AbortError' ? 'tempo limite excedido' : (lastErr?.message || 'erro de rede');
-        setInfraStatus(`⚠️ Todos os servidores Overpass falharam (${reason}). Tente novamente ou aproxime o zoom.`, 'error');
-        console.warn('[Infra] Todos os mirrors falharam. Último erro:', lastErr);
+function toggleREPLayer() {
+    if (!map) return;
+    if (!document.getElementById('show-repeaters').checked) {
+        if (repLayer) { map.removeLayer(repLayer); repLayer=null; }
         return;
     }
-
-    // Limpar caches
-    Object.keys(infraCache).forEach(k=>infraCache[k]=[]);
-
-    data.elements.forEach(el=>{
-        const t=el.tags||{}, lat=el.lat||el.center?.lat, lng=el.lon||el.center?.lon;
-        if(!lat||!lng) return;
-        const pt={lat,lng,name:t.name||t['name:pt']||t.amenity||t.waterway||'?',tags:t};
-        if(['hospital','clinic','health_centre','doctors'].includes(t.amenity)) infraCache.health.push(pt);
-        else if(t.amenity==='fire_station') infraCache.fire.push(pt);
-        else if(t.amenity==='police') infraCache.police.push(pt);
-        else if(t.amenity==='fuel') infraCache.fuel.push(pt);
-        else if(t.waterway==='dam'||t.man_made==='dam'||t.waterway==='weir') infraCache.water.push(pt);
-    });
-
-    infraLoaded=true;
-    const total=Object.values(infraCache).reduce((s,a)=>s+a.length,0);
-    setInfraStatus(`✅ ${total} pontos OSM carregados — activar checkboxes para visualizar`, 'ok');
-
-    // Actualizar camadas activas
-    Object.keys(INFRA_CFG).forEach(type=>{
-        if(document.getElementById(`infra-${type}`)?.checked) renderInfraLayer(type);
-    });
-}
-
-function toggleInfraLayer(type) {
-    const chk = document.getElementById(`infra-${type}`);
-    if (!chk) return;
-    if (!chk.checked) {
-        if(infraLayers[type]){try{map.removeLayer(infraLayers[type]);}catch(e){} infraLayers[type]=null;}
-        return;
-    }
-    if (type === 'rep') { renderREPLayer(); return; }
-    if (!infraLoaded) {
-        setInfraStatus('⚠️ Clique primeiro em "Carregar OSM".', 'warn');
-        return;
-    }
-    renderInfraLayer(type);
-}
-
-function renderInfraLayer(type) {
-    if(infraLayers[type]){try{map.removeLayer(infraLayers[type]);}catch(e){}}
-    const points = infraCache[type]||[];
-    const cfg = INFRA_CFG[type];
-    if(!cfg||points.length===0) return;
-    const layer=L.layerGroup();
-    points.forEach(pt=>{
-        const addr=[pt.tags['addr:street'],pt.tags['addr:city']].filter(Boolean).join(', ');
-        const m=L.circleMarker([pt.lat,pt.lng],{radius:6,color:cfg.color,weight:2,fillColor:cfg.color,fillOpacity:.85});
-        m.bindPopup(`<div style="font-family:'Segoe UI',sans-serif;font-size:12px;min-width:160px;">
-            <b style="color:${cfg.color}">${cfg.emoji} ${pt.name}</b><br>
-            <span style="color:#888;font-size:11px;">${cfg.label}</span><br>
-            ${addr?`📍 ${addr}<br>`:''}
-            <span style="font-size:10px;color:#7d9474;">${pt.lat.toFixed(5)}°, ${pt.lng.toFixed(5)}°</span></div>`);
-        layer.addLayer(m);
-    });
-    infraLayers[type]=layer;
-    map.addLayer(layer);
+    renderREPLayer();
 }
 
 function renderREPLayer() {
-    if(infraLayers.rep){try{map.removeLayer(infraLayers.rep);}catch(e){}}
+    if (repLayer) { try{map.removeLayer(repLayer);}catch(e){} }
     const layer=L.layerGroup();
     REP_NETWORK.forEach(rep=>{
         const col = rep.mode==='D-STAR'?'#00ffff':rep.mode==='DMR'?'#ff69b4':rep.band==='UHF'?'#da70d6':'#b44fda';
@@ -2330,21 +2890,8 @@ function renderREPLayer() {
                 Dados aprox. — verificar com REP/ARAM.</div></div>`);
         layer.addLayer(m);
     });
-    infraLayers.rep=layer;
+    repLayer=layer;
     map.addLayer(layer);
-}
-
-function toggleRepeaters() {
-    if(!map) return;
-    if(document.getElementById('show-repeaters').checked) {
-        repeaterLayer.clearLayers();
-        referenceRepeaters.forEach(rep=>{
-            const m=L.circleMarker([rep.lat,rep.lng],{radius:6,color:'#fff',weight:1,fillColor:rep.cor,fillOpacity:.9});
-            m.bindPopup(`<b>${rep.indicativo}</b><br>📍 ${rep.localizacao}<br>📻 ${rep.freq} (${rep.tipo})<br><i>Referência ilustrativa</i>`);
-            repeaterLayer.addLayer(m);
-        });
-        map.addLayer(repeaterLayer);
-    } else { repeaterLayer.clearLayers(); map.removeLayer(repeaterLayer); }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2356,6 +2903,105 @@ function exportReport() {
     const txt=`${'='.repeat(50)}\n    RELATÓRIO DE SIMULAÇÃO PMR/VHF/UHF\n${'='.repeat(50)}\nGerado em: ${d.timestamp}\nDistância: ${d.dist} km\nEstado:    ${d.statusLabel}\nTempo:     ${d.weather}\n${'-'.repeat(50)}\nPONTO A (${d.nameA})\n  GPS: ${d.latA}, ${d.lngA}\n  Terreno: ${d.altA}m + ${d.offA}m offset = ${d.effAltA}m\n  Potência: ${d.powerA}W\n${'-'.repeat(50)}\nPONTO B (${d.nameB})\n  GPS: ${d.latB}, ${d.lngB}\n  Terreno: ${d.altB}m + ${d.offB}m offset = ${d.effAltB}m\n  Potência: ${d.powerB}W\n${'='.repeat(50)}\nModelo aproximado — não substitui estudo profissional.`;
     const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`Relatorio_LOS_${d.dist}km.txt`; a.click();
+}
+
+// ══════════════════════════════════════════════════════
+//  PLANO DE COMUNICAÇÕES IMPRIMÍVEL (PDF via diálogo de impressão)
+// ══════════════════════════════════════════════════════
+function openPrintPlan() {
+    const mode = document.getElementById('analysis-mode').value;
+    const now = new Date().toLocaleString('pt-PT');
+
+    // ── Secção específica do modo ──────────────────────────────────────────
+    let body = '';
+    if (mode === 'network') {
+        if (!networkNodes.length) { alert('Sem nós na rede. Coloque nós (e analise) antes de imprimir o plano.'); return; }
+        let rows = networkNodes.map(n=>`<tr>
+            <td>${escapeHTML(n.name)}</td><td>${NODE_LABELS[n.type]||n.type}</td>
+            <td>${getModelLabel(n.model)}</td><td>${n.power} W</td>
+            <td>${n.alt}+${n.offset} = ${n.alt+n.offset} m</td>
+            <td class="mono">${n.lat.toFixed(5)}, ${n.lng.toFixed(5)}</td></tr>`).join('');
+        const matrix = document.getElementById('matrix-container').innerHTML || '<i>Rede ainda não analisada.</i>';
+        const logTxt = escapeHTML(document.getElementById('log-output').innerText || '');
+        body = `
+            <h2>Rede Multi-Nó — ${networkNodes.length} nós</h2>
+            <table class="plan"><thead><tr><th>Nó</th><th>Tipo</th><th>Equipamento</th><th>Potência</th><th>Altitude</th><th>GPS (lat, lng)</th></tr></thead>
+            <tbody>${rows}</tbody></table>
+            <h3>Matriz de Conetividade</h3>
+            <div class="matrix-wrap">${matrix}</div>
+            <h3>Resumo dos enlaces</h3><pre class="report">${logTxt}</pre>`;
+    } else {
+        // Enlace / Scanner — configuração dos rádios A/B
+        const d = currentCalculatedData;
+        const rd = (t)=>({
+            name: escapeHTML(document.getElementById(`radio${t}-name`).value||t),
+            model: getModelLabel(document.getElementById(`radio${t}-model`).value),
+            power: parseFloat(document.getElementById(`radio${t}-power`).value)||0,
+            off: parseInt(document.getElementById(`radio${t}-offset`).value)||0,
+            alt: t==='A'?altA:altB, known: t==='A'?altKnownA:altKnownB
+        });
+        const A = rd('A'), B = rd('B');
+        const isScanner = mode==='scanner';
+        const linkRow = d ? `
+            <tr><th>Distância</th><td>${d.dist} km</td><th>Estado</th><td>${d.statusLabel}</td></tr>
+            <tr><th>Condições</th><td>${escapeHTML(d.weather)}</td><th>Vegetação</th><td>${d.vegKm} km / −${d.vegDB} dB</td></tr>` : '';
+        body = `
+            <h2>${isScanner?'Cobertura 360º — Rádio A':'Enlace Ponto a Ponto (A ↔ B)'}</h2>
+            <table class="plan"><thead><tr><th>Rádio</th><th>Callsign</th><th>Equipamento</th><th>Potência</th><th>Alt. terreno</th><th>Alt. antena</th><th>Alt. efectiva</th></tr></thead>
+            <tbody>
+              <tr><td>A</td><td>${A.name}</td><td>${A.model}</td><td>${A.power} W</td><td>${A.known?A.alt+' m':'--'}</td><td>+${A.off} m</td><td>${A.known?(A.alt+A.off)+' m':'--'}</td></tr>
+              ${isScanner?'':`<tr><td>B</td><td>${B.name}</td><td>${B.model}</td><td>${B.power} W</td><td>${B.known?B.alt+' m':'--'}</td><td>+${B.off} m</td><td>${B.known?(B.alt+B.off)+' m':'--'}</td></tr>`}
+            </tbody></table>
+            ${linkRow?`<h3>Resultado do enlace</h3><table class="kv">${linkRow}</table>`:'<p class="muted">Sem enlace calculado — coloque os rádios no mapa para incluir o resultado.</p>'}`;
+    }
+
+    // ── Referência de frequências (sempre incluída) ────────────────────────
+    const chRows = PMR446_CHANNELS.map(c=>`<tr><td>CH ${String(c.ch).padStart(2,'0')}</td><td class="mono">${c.freq.toFixed(5)} MHz</td></tr>`).join('');
+    const chCols = `<table class="ref"><tbody>${chRows}</tbody></table>`;
+    const toneRows = CTCSS_TONES.map((hz,i)=>`<span class="tone${hz===77.0?' hi':''}">T${i+1} ${hz.toFixed(1)}</span>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8">
+<title>Plano de Comunicações PMR/VHF/UHF</title>
+<style>
+  *{box-sizing:border-box} body{font-family:'Segoe UI',Arial,sans-serif;color:#111;margin:24px;font-size:12px;line-height:1.4}
+  h1{font-size:19px;margin:0 0 2px} h2{font-size:15px;margin:16px 0 6px;border-bottom:2px solid #333;padding-bottom:3px}
+  h3{font-size:13px;margin:12px 0 4px;color:#333}
+  .sub{color:#555;font-size:11px;margin-bottom:8px}
+  table{border-collapse:collapse;width:100%;margin:4px 0}
+  table.plan th,table.plan td,table.kv th,table.kv td{border:1px solid #999;padding:4px 7px;text-align:left}
+  table.plan th{background:#eee} table.kv th{background:#eee;width:120px}
+  .mono{font-family:'Courier New',monospace} .muted{color:#777;font-style:italic}
+  .cols{display:flex;gap:20px;flex-wrap:wrap} .cols>div{flex:1;min-width:200px}
+  table.ref td{border:1px solid #bbb;padding:2px 6px;font-size:11px}
+  .tones{line-height:2} .tone{display:inline-block;border:1px solid #bbb;border-radius:3px;padding:1px 5px;margin:2px;font-size:10px;font-family:monospace}
+  .tone.hi{background:#ffe08a;border-color:#c99a00;font-weight:bold}
+  .matrix-wrap{overflow-x:auto}
+  .matrix-table{border-collapse:collapse;font-size:11px} .matrix-table th,.matrix-table td{border:1px solid #999;padding:3px 6px;text-align:center}
+  .matrix-table th{background:#eee}
+  .m-good{color:#0a7a0a;font-weight:bold} .m-marginal{color:#a07800;font-weight:bold} .m-diff-low{color:#c26000;font-weight:bold}
+  .m-diff-med{color:#c23000;font-weight:bold} .m-relay{color:#0060c2;font-weight:bold} .m-blocked{color:#c20000;font-weight:bold} .m-self{color:#bbb}
+  .status-good{color:#0a7a0a}.status-marginal{color:#a07800}.status-diff-low{color:#c26000}.status-diff-med{color:#c23000}.status-relay{color:#0060c2}.status-bad{color:#c20000}
+  pre.report{background:#f4f4f4;border:1px solid #ccc;padding:8px;white-space:pre-wrap;font-size:10.5px}
+  .notes{border:1px solid #999;height:90px;margin-top:4px}
+  footer{margin-top:20px;color:#777;font-size:10px;border-top:1px solid #ccc;padding-top:6px}
+  @media print{ body{margin:10mm} .noprint{display:none} button{display:none} }
+</style></head><body>
+  <h1>📻 Plano de Comunicações — PMR / VHF / UHF</h1>
+  <div class="sub">Gerado em ${now} · Simulador de Alcance Rádio</div>
+  <button class="noprint" onclick="window.print()" style="padding:6px 14px;margin-bottom:8px;cursor:pointer">🖨 Imprimir / Guardar PDF</button>
+  ${body}
+  <h2>Referência de Frequências</h2>
+  <div class="cols">
+    <div><h3>Canais PMR446 (446 MHz · FM · 0.5 W · uso livre UE)</h3>${chCols}</div>
+    <div><h3>Subtons CTCSS ⭐ 77.0 Hz = repetidores REP</h3><div class="tones">${toneRows}</div></div>
+  </div>
+  <h3>Notas / CEOI</h3><div class="notes"></div>
+  <footer>Modelo aproximado para fins informativos — não substitui estudo de propagação profissional. Frequências/subtons standard PMR446; confirme sempre no manual do equipamento.</footer>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) { alert('O browser bloqueou a janela de impressão. Permita pop-ups para este ficheiro.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
 }
 </script>
 </body>
